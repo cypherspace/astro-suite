@@ -108,6 +108,42 @@ export class SkyViewerCore {
         (fs === this.opts.container || this.opts.container.contains(fs));
       setFullscreen(inAladin);
     });
+
+    this.installZoomButtons();
+  }
+
+  // Custom +/- zoom buttons overlaid on the Aladin canvas. Aladin Lite v3
+  // builds since 2025 no longer render a visible standalone zoom control
+  // even with `showZoomControl: true`; provide our own so users on touch
+  // devices and trackpads aren't stuck with scroll-wheel zoom.
+  private installZoomButtons(): void {
+    if (!this.aladin) return;
+    const wrap = document.createElement("div");
+    wrap.className = "sky-zoom-control";
+    const make = (label: string, title: string, factor: number) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = label;
+      btn.title = title;
+      btn.setAttribute("aria-label", title);
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.adjustFov(factor);
+      });
+      return btn;
+    };
+    wrap.appendChild(make("+", "Zoom in", 0.5));
+    wrap.appendChild(make("−", "Zoom out", 2));
+    this.opts.container.appendChild(wrap);
+  }
+
+  private adjustFov(factor: number): void {
+    if (!this.aladin?.setFov) return;
+    const fov = this.aladin.getFov();
+    const current = Math.max(fov[0] ?? 0, fov[1] ?? 0);
+    if (!current || !isFinite(current)) return;
+    const next = Math.min(180, Math.max(0.0005, current * factor));
+    this.aladin.setFov(next);
   }
 
   // ---- raw access -------------------------------------------------------
