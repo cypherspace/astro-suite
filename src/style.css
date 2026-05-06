@@ -142,7 +142,8 @@ header .subtitle {
   border-color: var(--accent);
   color: var(--accent);
 }
-#action-bar #hubble1929-btn {
+#action-bar #hubble1929-btn,
+#action-bar #russell1914-btn {
   border-color: var(--accent-coral);
   color: var(--accent-coral);
 }

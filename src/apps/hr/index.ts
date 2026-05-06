@@ -315,11 +315,11 @@ class HrApp {
           getCurrentOverlay: () => this.diagram.getOverlay(),
         }).open();
       }],
-      ["russell1914-btn", "Russell's 1914 graph", "Step through Henry Norris Russell's original 1914 H-R diagram, star by star", () => this.runRussell1914Tour()],
       ["tour-btn", "Tour", "Replay the on-screen tour", () => {
         Walkthrough.reset();
         new Walkthrough().start();
       }],
+      ["russell1914-btn", "Russell's 1914 graph", "Step through Henry Norris Russell's original 1914 H-R diagram, star by star", () => this.runRussell1914Tour()],
     ];
     for (const [id, label, title, onClick] of buttons) {
       const btn = document.createElement("button");
