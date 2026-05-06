@@ -179,7 +179,7 @@ const MAIN_GROUPS: Group[] = [
         "main-sequence star at around 5800 K and 1 solar luminosity.",
       "The narrowness of the band is the headline result of the H-R " +
         "diagram — it tells us that almost all stars fuse hydrogen the " +
-        "same way, just on different scales.",
+        "same way, just on different scales, and that it's the mass of the star that determines its brightness and temperature.",
     ],
   },
   {
