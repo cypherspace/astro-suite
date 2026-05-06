@@ -512,8 +512,10 @@ body:not(.view-info-open) .aladin-cooFrame {
 #tab-bar .tab.active {
   background: var(--bg);
   color: var(--fg);
-  border-top: 2px solid var(--accent);
+  /* Set side colours first, then override the top so the yellow
+     accent isn't reset by the shorthand. */
   border-color: var(--grid);
+  border-top: 2px solid var(--accent);
   border-bottom: 1px solid var(--bg);
   padding-top: calc(0.45rem - 1px);
   cursor: default;
