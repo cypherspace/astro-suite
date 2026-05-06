@@ -137,7 +137,7 @@ export class Russell1914Tour {
     const wrap = document.createElement("figure");
     wrap.id = "r1914-split-image";
     wrap.innerHTML = `
-      <img src="./data/russell1914-original.jpeg"
+      <img src="./data/russell1914-original.png"
            alt="Russell (1914), Figure 3 — absolute magnitude vs. spectral type for ~200 stars" />
       <figcaption>
         Russell (1914), Figure 3.
