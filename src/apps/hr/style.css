@@ -4,8 +4,9 @@
 
 /* ===========================================================
    Russell's-1914 tour — split-canvas + bottom side-panel.
-   Same shape as Hubble's-1929 tour styling but with the H-R
-   app's yellow accent instead of coral.
+   Mirrors the Hubble's-1929 tour styling, including the coral
+   accent on borders / headings / primary buttons so the two
+   historic-paper tours look like a matched pair.
    =========================================================== */
 body.r1914-split-canvas #diagram-panel {
   display: grid;
@@ -68,7 +69,7 @@ body.r1914-split-canvas #info-panel {
   overflow-y: auto;
   background: var(--panel);
   color: var(--fg);
-  border: 1px solid var(--accent);
+  border: 1px solid var(--accent-coral);
   border-radius: 8px;
   padding: 1rem 1.25rem 0.85rem;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
@@ -76,7 +77,7 @@ body.r1914-split-canvas #info-panel {
 }
 .r1914-side-panel h3 {
   margin: 0 0 0.5rem;
-  color: var(--accent);
+  color: var(--accent-coral);
   font-size: 1.05rem;
 }
 .r1914-side-panel-body { line-height: 1.5; font-size: 0.9rem; }
@@ -102,9 +103,9 @@ body.r1914-split-canvas #info-panel {
 }
 .r1914-side-panel-buttons button:hover { background: #243057; }
 .r1914-side-panel-buttons button.primary {
-  background: var(--accent);
+  background: var(--accent-coral);
   color: #1a1a1a;
-  border-color: var(--accent);
+  border-color: var(--accent-coral);
   font-weight: 600;
 }
-.r1914-side-panel-buttons button.primary:hover { background: #ffe18a; }
+.r1914-side-panel-buttons button.primary:hover { background: #ffa278; }

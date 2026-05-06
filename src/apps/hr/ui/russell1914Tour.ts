@@ -211,7 +211,7 @@ export class Russell1914Tour {
         bottom: "16px",
         maxWidth: "440px",
         background: "var(--panel)",
-        border: "1px solid var(--accent)",
+        border: "1px solid var(--accent-coral)",
         borderRadius: "6px",
         padding: "12px 14px",
         color: "var(--fg)",
@@ -223,7 +223,7 @@ export class Russell1914Tour {
       const heading = document.createElement("div");
       heading.style.fontWeight = "600";
       heading.style.fontSize = "14px";
-      heading.style.color = "var(--accent)";
+      heading.style.color = "var(--accent-coral)";
       heading.textContent = `Step ${idx + 1} / ${RUSSELL_1914_FEATURED.length}: ${s.displayName}`;
       overlay.appendChild(heading);
 
@@ -312,7 +312,7 @@ export class Russell1914Tour {
         bottom: "16px",
         maxWidth: "320px",
         background: "var(--panel)",
-        border: "1px solid var(--accent)",
+        border: "1px solid var(--accent-coral)",
         borderRadius: "6px",
         padding: "10px 12px",
         color: "var(--fg)",
@@ -321,7 +321,7 @@ export class Russell1914Tour {
       } as Partial<CSSStyleDeclaration>);
       const heading = document.createElement("div");
       heading.style.fontWeight = "600";
-      heading.style.color = "var(--accent)";
+      heading.style.color = "var(--accent-coral)";
       heading.textContent = "Filling in Russell's diagram…";
       overlay.appendChild(heading);
       const progress = document.createElement("p");
@@ -636,7 +636,7 @@ export class Russell1914Tour {
       const modal = document.createElement("div");
       Object.assign(modal.style, {
         background: "var(--panel)",
-        border: "1px solid var(--accent)",
+        border: "1px solid var(--accent-coral)",
         borderRadius: "8px",
         padding: "1.5rem 1.75rem",
         maxWidth: "min(720px, 96vw)",
@@ -648,7 +648,7 @@ export class Russell1914Tour {
 
       const heading = document.createElement("h3");
       heading.style.margin = "0 0 0.6rem";
-      heading.style.color = "var(--accent)";
+      heading.style.color = "var(--accent-coral)";
       heading.style.fontSize = "1.25rem";
       heading.textContent = title;
       modal.appendChild(heading);
