@@ -403,16 +403,15 @@ export class Russell1914Tour {
 
   private showIntroPanel2(): Promise<boolean> {
     const html = `
-      <p>Russell didn't measure the data himself. He assembled it from
-        four named sources, all of which he credits in the paper:</p>
+      <p>Russell didn't measure the data himself. He used data from other astronomers. Several data sources are cited in his paper:</p>
       <ul>
-        <li><strong>Annie Jump Cannon</strong> at Harvard, who had
-          classified hundreds of thousands of stellar spectra into the
+        <li><strong>Annie Jump Cannon</strong> at Harvard had
+          classified hundreds of thousands of stars into the
           OBAFGKM sequence.</li>
         <li><strong>Trigonometric parallaxes</strong> of nearby bright
           stars, measured at observatories like Cambridge and Yerkes.</li>
         <li><strong>The Hyades open cluster</strong>, where the
-          moving-cluster method gave a single distance for many stars
+         <i>"moving-cluster method"</i> gave a single distance for many stars
           at once.</li>
         <li><strong>Antonia Maury's "c-type" stars</strong> — narrow-
           lined cool stars that Hertzsprung had argued were giants.</li>
@@ -432,18 +431,8 @@ export class Russell1914Tour {
     const html = `
       <p>We'll start by walking through ${RUSSELL_1914_FEATURED.length}
         of the stars Russell talks about by name in the paper, or that
-        come from the four pools above. The Aladin sky map will pan to
-        each one, and the diagram will fill in step by step.</p>
-      <p>Watch for two things to emerge:</p>
-      <ol>
-        <li>A long diagonal band — Russell's <em>dwarf</em> branch —
-          that runs from hot blue stars to cool red ones.</li>
-        <li>A separate clump above and to the right — the <em>giant</em>
-          branch — populated by the cool, luminous stars Hertzsprung
-          had flagged.</li>
-      </ol>
-      <p>And keep an eye out for a few stragglers down at the bottom-
-        left. Those puzzled Russell at the time.</p>
+        come from the four pools above.</p>
+     
     `;
     return this.showLargeModal(
       "Russell's 1914 graph (3 of 3)",
@@ -484,15 +473,16 @@ export class Russell1914Tour {
       <p>That's it! On the left you can see a recreation of Russell's
         original 1914 figure; on the right, the same diagram you've
         just built from his data sources.</p>
-      <p>Two patterns jump out:</p>
+      <p>Russell noticed that two features were clear:</p>
       <ul>
-        <li>A diagonal <strong>main sequence</strong> band, from hot
-          blue stars at top-left down to cool red dwarfs at bottom-right.</li>
+        <li>A diagonal band, from hot, bright, blue stars at the top-left,
+        down to cool, dim, red stars at the bottom-right.</li>
         <li>A separate <strong>giant branch</strong> — luminous, cool
           stars in the upper-right, vindicating Hertzsprung's c-type
           hypothesis.</li>
       </ul>
-      <p>Russell didn't yet know <em>why</em> the two branches existed.</p>
+      <p> He also noticed some stragglers, some dim but hot stars, that didn't fit the other two patterns.</p>
+      <p>Russell didn't yet know <em>why</em> these branches and existed.</p>
     `;
     return this.showSidePanel(
       "Russell's original 1914 graph",
@@ -507,11 +497,12 @@ export class Russell1914Tour {
   private showWhatWeKnowPanel(): Promise<boolean> {
     const html = `
       <p>What Russell saw as two static groups, we now read as a
-        <strong>life story</strong>.</p>
-      <p>A star spends most of its life on the main sequence, fusing
+        <strong>life story</strong>.</p> 
+        <p>Most stars exist on the <strong>main sequence</strong> band. 
+        This is the main part of a star's life, fusing
         hydrogen into helium. When the hydrogen runs out, the core
         contracts and the outer layers expand and cool — the star
-        crosses up onto the giant branch. After shedding most of its
+        crosses up onto the <strong>giant branch</strong>. After shedding most of its
         mass, the exposed core is left as a <strong>white dwarf</strong>:
         the dense, faint stragglers Russell couldn't explain.</p>
       <p>Russell's diagram, drawn in 1914, turned out to be a snapshot
