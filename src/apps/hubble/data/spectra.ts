@@ -1,0 +1,98 @@
+import type { SpectrumPoint } from "../types";
+import { loadLiveSdssSpectrum } from "./sdssSpec";
+
+// Loads a pre-fetched SDSS DR17 spec-lite CSV from Firebase Hosting.
+// The build-data script writes these as 2-column CSV (wavelength,flux)
+// to public/data/spectra/{galaxyId}.csv. When SDSS doesn't have a
+// spectrum at the catalogued (plate, mjd, fiber) — or it returns an
+// HTML error / empty body — the build-data script writes a sentinel
+// `{galaxyId}.empty` file instead, and we surface a clear "no
+// spectrum" error here.
+//
+// Search-result galaxies (id starts with `sdss-<objID>`) skip the
+// static-file path entirely and resolve their spec-lite CSV at
+// runtime via SkyServer + dr17.sdss.org — see `./sdssSpec.ts`.
+
+const CACHE = new Map<string, SpectrumPoint[]>();
+
+export class SpectrumUnavailableError extends Error {
+  constructor(public readonly galaxyId: string) {
+    super(
+      `No SDSS spectrum is available for ${galaxyId}. ` +
+        `This galaxy's redshift was set from a different source.`,
+    );
+    this.name = "SpectrumUnavailableError";
+  }
+}
+
+export async function loadSpectrum(
+  galaxyId: string,
+  signal?: AbortSignal,
+): Promise<SpectrumPoint[]> {
+  if (CACHE.has(galaxyId)) return CACHE.get(galaxyId)!;
+
+  // Search-result galaxies — resolve via SkyServer at runtime.
+  if (galaxyId.startsWith("sdss-")) {
+    const objId = galaxyId.slice("sdss-".length);
+    try {
+      const points = await loadLiveSdssSpectrum(objId, signal);
+      if (!points) throw new SpectrumUnavailableError(galaxyId);
+      CACHE.set(galaxyId, points);
+      return points;
+    } catch (e) {
+      if (e instanceof SpectrumUnavailableError) throw e;
+      throw new SpectrumUnavailableError(galaxyId);
+    }
+  }
+
+  // Curated galaxies — pre-built CSV at /data/spectra/{id}.csv. The
+  // build-data script emits an empty CSV (or skips the file) for
+  // galaxies SDSS doesn't have a spectrum for; we detect those by
+  // attempting the GET and validating the body is real CSV.
+  //
+  // We can't HEAD-probe a sibling `.empty` sentinel because Firebase
+  // Hosting's SPA rewrite (and Vite dev's fallback) returns 200 +
+  // index.html for any unknown path, which used to trigger a false
+  // "unavailable" before the .csv was even fetched.
+  const r = await fetch(`./data/spectra/${galaxyId}.csv`, { signal });
+  if (!r.ok) {
+    throw new SpectrumUnavailableError(galaxyId);
+  }
+  const ct = r.headers.get("content-type") ?? "";
+  if (ct.startsWith("text/html")) {
+    // SPA fallback caught us — file doesn't exist.
+    throw new SpectrumUnavailableError(galaxyId);
+  }
+  const text = await r.text();
+  if (text.trimStart().startsWith("<")) {
+    // Last-resort guard against the SPA fallback when content-type
+    // isn't set (some hosts).
+    throw new SpectrumUnavailableError(galaxyId);
+  }
+  const points = parseSpectrumCsv(text);
+  if (points.length < 50) {
+    throw new SpectrumUnavailableError(galaxyId);
+  }
+  CACHE.set(galaxyId, points);
+  return points;
+}
+
+export function parseSpectrumCsv(text: string): SpectrumPoint[] {
+  const out: SpectrumPoint[] = [];
+  const lines = text.split(/\r?\n/);
+  // Skip header if present.
+  let start = 0;
+  if (lines[0] && /[a-z]/i.test(lines[0])) start = 1;
+  for (let i = start; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const parts = line.split(",");
+    if (parts.length < 2) continue;
+    const w = Number(parts[0]);
+    const f = Number(parts[1]);
+    if (Number.isFinite(w) && Number.isFinite(f)) {
+      out.push({ wavelengthAngstroms: w, flux: f });
+    }
+  }
+  return out;
+}

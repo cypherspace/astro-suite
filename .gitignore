@@ -1,0 +1,8 @@
+node_modules
+dist
+dist-embed-*
+.firebase
+*.log
+.DS_Store
+.env
+.env.local

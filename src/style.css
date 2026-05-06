@@ -1,0 +1,1385 @@
+/* Forked from h-r-diagram, trimmed to essentials. The Hubble app reuses
+   the same three-pane layout (sky | diagram | info) and the same
+   colour palette. Modal styles for Cepheid / spectrum / light-curve
+   panels live at the bottom. */
+
+:root {
+  --bg: #0b1020;
+  --bg-2: #11183a;
+  --panel: #131a30;
+  --panel-2: #1a2240;
+  --line: #2a3357;
+  --grid: #2a3357;
+  --text: #e6ecff;
+  --fg: #e6ecff;
+  --text-dim: #8b95b8;
+  --muted: #8b95b8;
+  /* Match h-r-diagram's accent palette so the two apps feel like a
+     pair. Yellow = headline values, blue/green/violet = info buttons.
+     --accent-coral is the Hubble-only accent for the "1929 graph"
+     button (no equivalent in h-r-diagram). */
+  --accent: #ffd166;
+  --accent-2: #6cc4ff;
+  --accent-good: #9be7c4;
+  --accent-violet: #d8a8ff;
+  --accent-coral: #ff8a5b;
+  --warn: #ffb74d;
+  --good: #6dd58c;
+  --bad: #ff7b7b;
+  --link: #9bd3ff;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Astro Suite shell layout: Chrome-style tab strip at the very top
+   (full-bleed, no padding), then the title block + action buttons in
+   a single header row, then the active app's content area. */
+:root {
+  --fs-strip-h: 44px;
+}
+#app {
+  display: grid;
+  grid-template-areas:
+    "tabs    tabs"
+    "header  actions"
+    "main    main";
+  grid-template-columns: 1fr auto;
+  grid-template-rows: 40px auto 1fr;
+  height: 100vh;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+#tab-bar { grid-area: tabs; }
+header {
+  grid-area: header;
+  padding: 0.5rem 0.75rem 0;
+  align-self: end;
+}
+#action-bar {
+  grid-area: actions;
+  align-self: end;
+  padding: 0.5rem 0.75rem 0;
+}
+#app-main {
+  grid-area: main;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+#app-main > main { display: contents; }
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+header h1 {
+  margin: 0 0 0.2rem;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+header .subtitle {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.header-buttons,
+#action-bar {
+  display: flex;
+  gap: 0.5rem;
+}
+/* Match h-r-diagram: yellow ?Tour, blue How it works, green How we
+   know, violet Diagram guide. Plus coral Hubble's-1929 (Hubble-only).
+   Greyed-out (disabled) state for the guide button until the
+   threshold is reached.
+
+   Note: ID selectors below are nested under #action-bar (e.g.
+   `#action-bar #how-btn`) so they out-rank the `#action-bar button`
+   shorthand `border` rule. Otherwise CSS specificity gives every
+   button the same default yellow outline regardless of id. */
+#action-bar button {
+  background: var(--panel);
+  /* Default fallback for any new button without a per-id rule below. */
+  color: var(--accent);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--accent);
+  border-radius: 4px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+#action-bar button:hover:not(:disabled) { background: #243057; }
+
+#action-bar #how-btn {
+  border-color: var(--accent-2);
+  color: var(--accent-2);
+}
+#action-bar #how-we-know-btn {
+  border-color: var(--accent-good);
+  color: var(--accent-good);
+}
+#action-bar #diagram-guide-btn {
+  border-color: var(--accent-violet);
+  color: var(--accent-violet);
+}
+#action-bar #tour-btn {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+#action-bar #hubble1929-btn {
+  border-color: var(--accent-coral);
+  color: var(--accent-coral);
+}
+
+#action-bar #diagram-guide-btn[disabled],
+#action-bar button:disabled {
+  border-color: var(--grid);
+  color: var(--muted);
+  background: transparent;
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* Three-pane content area — sky on the left, diagram in the middle,
+   info on the right. Lives inside #app-main so the active app can
+   render its scaffold directly. */
+#app-main {
+  display: grid;
+  grid-template-columns: 1fr 1fr 280px;
+  gap: 0.75rem;
+  flex: 1;
+  min-height: 0;
+}
+main {
+  display: contents;
+}
+
+@media (max-width: 1100px) {
+  #app-main { grid-template-columns: 1fr 1fr; }
+  #info-panel { grid-column: 1 / -1; }
+}
+@media (max-width: 720px) {
+  html, body { overflow: auto; height: auto; }
+  #app {
+    grid-template-areas: "header" "tabs" "actions" "main";
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto auto;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+  #app-main { grid-template-columns: 1fr; }
+  #info-panel { grid-column: auto; }
+  #sky-panel #aladin-lite-div { min-height: 60vh; }
+  #diagram-panel #diagram { min-height: 50vh; }
+  aside { overflow-y: visible; }
+  #action-bar {
+    align-self: stretch;
+    justify-content: center;
+    flex-wrap: wrap;
+    padding: 0.5rem 0 0.25rem;
+    border-top: 1px solid var(--grid);
+  }
+  header h1 { font-size: 1.15rem; }
+  .subtitle { font-size: 0.78rem; }
+}
+
+/* ===========================================================
+   "How it works" / "How we know" / "Diagram guide" modals.
+   These use H-R's modal class set (.how-overlay, .how-modal,
+   .how-close, .hwk-section, …) — chosen as the canonical modal
+   styling per Stage 5. Hubble's older `.hb-modal-backdrop` /
+   `.hb-modal` / `.modal-close` rules are kept below for the small
+   utility modal helper in shared/modal.ts (Cepheid / Spectrum
+   / lightcurve panels), which is structurally simpler.
+   =========================================================== */
+.how-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 16, 32, 0.78);
+  z-index: 99000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.how-modal {
+  background: var(--panel);
+  color: var(--fg);
+  border: 1px solid var(--grid);
+  border-radius: 8px;
+  max-width: 640px;
+  width: 100%;
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 1.25rem 1.5rem 1.5rem;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  position: relative;
+}
+.how-modal h2 {
+  margin: 0 0 0.7rem;
+  color: var(--accent);
+  font-size: 1.25rem;
+  padding-right: 2rem;
+}
+.how-modal h3 {
+  margin: 1.2rem 0 0.4rem;
+  color: var(--accent-2);
+  font-size: 1rem;
+  border-top: 1px solid var(--grid);
+  padding-top: 0.9rem;
+}
+.how-modal h3:first-of-type { border-top: none; padding-top: 0; }
+.how-modal p {
+  margin: 0 0 0.6rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.how-modal strong {
+  color: var(--accent);
+  font-weight: 600;
+  margin-right: 0.15rem;
+}
+.how-modal a,
+.how-modal a:visited {
+  color: var(--accent-2);
+  text-decoration: underline;
+}
+.how-modal a:hover { color: var(--accent); }
+.how-close {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.7rem;
+  width: 2rem;
+  height: 2rem;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--grid);
+  border-radius: 4px;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  font-family: inherit;
+}
+.how-close:hover { color: var(--fg); background: var(--panel-2); }
+
+/* "How we know" panel: collapsible <details> sections */
+.hwk-section {
+  border-top: 1px solid var(--grid);
+  padding: 0.6rem 0;
+}
+.hwk-section:first-of-type { border-top: none; }
+.hwk-section > summary {
+  cursor: pointer;
+  color: var(--accent-2);
+  font-size: 1rem;
+  font-weight: 600;
+  list-style: none;
+  padding: 0.2rem 0;
+  user-select: none;
+}
+.hwk-section > summary::before {
+  content: "▸";
+  display: inline-block;
+  width: 1rem;
+  color: var(--muted);
+  transition: transform 0.15s ease-out;
+}
+.hwk-section[open] > summary::before { transform: rotate(90deg); }
+.hwk-body { padding: 0.4rem 0 0.2rem 1rem; }
+.hwk-body p { font-size: 0.9rem; line-height: 1.55; margin: 0 0 0.6rem; }
+.hwk-body ol, .hwk-body ul {
+  font-size: 0.9rem;
+  line-height: 1.55;
+  margin: 0 0 0.6rem 1.2rem;
+  padding: 0;
+}
+.hwk-body li { margin-bottom: 0.25rem; }
+.hwk-body strong { color: var(--accent); }
+.hwk-eq {
+  margin: 0.4rem 0 0.8rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--panel-2);
+  border-left: 3px solid var(--accent-2);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 0.92rem;
+  color: var(--fg);
+  border-radius: 0 4px 4px 0;
+}
+.hwk-eq strong { color: var(--accent); }
+.hwk-fig {
+  margin: 0.6rem 0;
+  padding: 0;
+}
+.hwk-fig svg {
+  width: 100%;
+  max-width: 360px;
+  height: auto;
+  display: block;
+  border-radius: 4px;
+  background: #0c1326;
+}
+.hwk-fig figcaption {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-top: 0.3rem;
+  line-height: 1.45;
+}
+.hwk-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin: 0.4rem 0 0.8rem;
+}
+.hwk-table th,
+.hwk-table td {
+  border-bottom: 1px solid var(--grid);
+  padding: 0.3rem 0.5rem;
+  text-align: left;
+}
+.hwk-table th { color: var(--muted); font-weight: 500; }
+
+/* Diagram-guide overlay buttons (Hide / Basic / Advanced) */
+.guide-overlay-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.4rem 0 0.8rem;
+}
+.guide-overlay-btn {
+  background: var(--panel-2);
+  color: var(--fg);
+  border: 1px solid var(--grid);
+  border-radius: 4px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+.guide-overlay-btn:hover { background: #243057; }
+.guide-overlay-btn.active {
+  border-color: var(--accent-violet);
+  color: var(--accent-violet);
+  background: rgba(216, 168, 255, 0.12);
+}
+.guide-attrib {
+  font-size: 0.78rem;
+  color: var(--muted);
+  border-top: 1px solid var(--grid);
+  padding-top: 0.6rem;
+  margin-top: 0.8rem;
+}
+
+/* Walkthrough tour — backdrop dims the page, tooltip floats above. */
+.tour-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 16, 32, 0.6);
+  z-index: 9990;
+  pointer-events: none;
+}
+.tour-tooltip {
+  position: fixed;
+  z-index: 10000;
+  background: var(--panel);
+  color: var(--fg);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 1rem 1.1rem;
+  width: min(360px, calc(100vw - 32px));
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
+  font-size: 0.92rem;
+  pointer-events: auto;
+}
+.tour-tooltip h3 { margin: 0 0 0.45rem; color: var(--accent); font-size: 1.05rem; }
+.tour-tooltip p { margin: 0 0 0.85rem; line-height: 1.45; }
+.tour-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+.tour-actions button {
+  background: var(--panel-2);
+  color: var(--fg);
+  border: 1px solid var(--grid);
+  border-radius: 4px;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+.tour-actions button:hover { background: #243057; }
+.tour-actions button.tour-next {
+  background: var(--accent);
+  color: #1a1a1a;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.tour-actions button.tour-next:hover { background: #ffe18a; }
+.tour-progress { color: var(--muted); font-size: 0.85rem; }
+.tour-highlighted {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 6px;
+  box-shadow: 0 0 24px rgba(255, 209, 102, 0.45);
+  transition: outline-color 0.2s ease;
+}
+
+/* Provenance badge (data-panel) */
+.provenance-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 500;
+  vertical-align: middle;
+  letter-spacing: 0.02em;
+}
+.provenance-badge.published {
+  background: rgba(155, 231, 196, 0.18);
+  color: var(--accent-good);
+  border: 1px solid rgba(155, 231, 196, 0.45);
+}
+.provenance-badge.derived {
+  background: rgba(139, 149, 184, 0.15);
+  color: var(--muted);
+  border: 1px solid rgba(139, 149, 184, 0.35);
+}
+
+/* ===========================================================
+   Aladin native chrome (projection control / frame indicator /
+   location readout / FoV indicator) — hidden by default, revealed
+   when the "Projection & coords" checkbox toggles body.view-info-open.
+   The Aladin instance is initialised with these visible so the DOM
+   elements exist; CSS does the show/hide.
+   =========================================================== */
+body:not(.view-info-open) .aladin-projection-control,
+body:not(.view-info-open) .aladin-location,
+body:not(.view-info-open) .aladin-fov,
+body:not(.view-info-open) .aladin-cooFrame {
+  display: none !important;
+}
+
+/* ===========================================================
+   Chrome-style tab bar — Variant B: full-bleed strip with subtle
+   dark gradient, tabs flush at the very top of the viewport, active
+   tab merges into the page background below the strip.
+   =========================================================== */
+#tab-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 6px 0.75rem 0;
+  background: linear-gradient(180deg, #060a18 0%, var(--bg) 100%);
+  border-bottom: 1px solid var(--grid);
+  height: 40px;
+}
+#tab-bar .tab {
+  background: rgba(19, 26, 48, 0.6);
+  color: var(--muted);
+  border: 1px solid var(--grid);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  padding: 0.45rem 1.1rem 0.5rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  position: relative;
+  bottom: -1px;
+  transition: background-color 80ms ease, color 80ms ease;
+}
+#tab-bar .tab:hover:not(.active) {
+  background: #243057;
+  color: var(--fg);
+}
+#tab-bar .tab.active {
+  background: var(--bg);
+  color: var(--fg);
+  border-top: 2px solid var(--accent);
+  border-color: var(--grid);
+  border-bottom: 1px solid var(--bg);
+  padding-top: calc(0.45rem - 1px);
+  cursor: default;
+}
+#tab-bar .tab:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+}
+
+/* ===========================================================
+   Fullscreen sky-controls strip — fixed row at the top of the
+   browser window, Aladin canvas fills the rest of the viewport.
+   The slot-swap mechanism in SkyViewerCore moves the live
+   #sky-controls subtree into #sky-fullscreen-strip on enter, and
+   back to its original anchor on exit (handlers + state preserved).
+   =========================================================== */
+#sky-fullscreen-strip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--fs-strip-h);
+  /* Aladin Lite v3 raises #sky-panel to z-index 99999 in its
+     fullscreen mode; the strip needs to sit above that. */
+  z-index: 100000;
+  background: var(--panel);
+  border-bottom: 1px solid var(--grid);
+  padding: 0 0.75rem;
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-x: auto;
+  overflow-y: visible;
+  pointer-events: auto;
+}
+body.aladin-fullscreen #sky-fullscreen-strip:not([hidden]) {
+  display: flex;
+}
+body.aladin-fullscreen #sky-fullscreen-strip #sky-controls {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0;
+  flex: 1 1 auto;
+  white-space: nowrap;
+}
+/* Inside the fullscreen strip, control-groups are forced into a
+   single horizontal row (their normal stacked layout doesn't fit in
+   a 44px strip). The group-heading shrinks to a small label and
+   each control sits inline. flex-wrap: nowrap keeps each group on
+   one line; the strip itself scrolls horizontally if total width
+   exceeds the viewport. */
+body.aladin-fullscreen #sky-fullscreen-strip .control-group {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0 0.5rem;
+  border-right: 1px solid var(--grid);
+  flex-shrink: 0;
+}
+body.aladin-fullscreen #sky-fullscreen-strip .control-group:last-child {
+  border-right: none;
+}
+body.aladin-fullscreen #sky-fullscreen-strip .control-group-heading {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin: 0;
+  width: auto !important;
+  flex-shrink: 0;
+}
+body.aladin-fullscreen #sky-fullscreen-strip .control-pair {
+  margin: 0;
+  flex-shrink: 0;
+}
+body.aladin-fullscreen #sky-fullscreen-strip .help-btn {
+  display: none;
+}
+body.aladin-fullscreen #sky-fullscreen-strip #sky-status {
+  display: none;
+}
+
+/* Hide everything except the fullscreen strip + Aladin canvas. */
+body.aladin-fullscreen header,
+body.aladin-fullscreen #info-panel,
+body.aladin-fullscreen #diagram-panel,
+body.aladin-fullscreen #tab-bar,
+body.aladin-fullscreen #action-bar {
+  display: none !important;
+}
+body.aladin-fullscreen #app {
+  grid-template-areas: "main" !important;
+  grid-template-columns: 1fr !important;
+  grid-template-rows: 1fr !important;
+  padding: 0;
+}
+body.aladin-fullscreen #app-main {
+  padding: 0 !important;
+  grid-template-columns: 1fr !important;
+}
+/* Aladin's own fullscreen sets #sky-panel to position:fixed; top:0;
+   left:0; width:100vw; height:100vh; with z-index 99999 via inline
+   styles. We force it to start below the strip and reduce its height
+   so the Aladin canvas doesn't overlap the controls. */
+body.aladin-fullscreen #sky-panel {
+  padding: 0 !important;
+  border-radius: 0 !important;
+  top: var(--fs-strip-h) !important;
+  height: calc(100vh - var(--fs-strip-h)) !important;
+  background: transparent !important;
+}
+body.aladin-fullscreen #aladin-lite-div {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Panel base — same as h-r-diagram (no borders, just rounded
+   panel-coloured backgrounds). */
+section, aside {
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+/* Right info-panel: split into two independent scroll areas. The
+   selected-galaxy data block always shows in full (no scrolling
+   needed to reach the Find distance / Find redshift buttons), and
+   the galaxy-sets list below gets the remaining vertical space and
+   scrolls if it grows beyond it. Previously the whole aside was a
+   single scroll region, which meant the action buttons could be
+   pushed below the fold. */
+aside { overflow: hidden; }
+
+/* Sky panel is the positioning anchor for #sky-status, which floats
+   over the bottom-right of the sky map as a non-interactive toast. */
+#sky-panel { position: relative; }
+
+/* Sky-panel controls — single flowing flex row that wraps as needed.
+   Mirrors h-r-diagram exactly so the two apps feel identical. */
+#sky-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
+#sky-controls input,
+#sky-controls select,
+#sky-controls button {
+  background: var(--panel-2);
+  color: var(--fg);
+  border: 1px solid var(--grid);
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.82rem;
+  font-family: inherit;
+}
+#sky-controls button { cursor: pointer; }
+#sky-controls button:hover { background: #243057; }
+#sky-controls button.primary {
+  background: var(--accent);
+  color: #0c1326;
+  border-color: var(--accent);
+  font-weight: 600;
+  padding: 0.3rem 0.85rem;
+}
+#sky-controls button.primary:hover {
+  background: var(--accent-2);
+  border-color: var(--accent-2);
+}
+#sky-controls input[type="number"] { width: 4rem; }
+#sky-controls input[type="text"] { width: 9rem; }
+#sky-controls input[type="checkbox"] { margin-right: 0.25rem; }
+#sky-status {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  z-index: 10;
+  max-width: min(70%, 420px);
+  padding: 4px 8px;
+  background: rgba(11, 16, 32, 0.7);
+  border: 1px solid var(--grid);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  pointer-events: none;
+}
+#sky-status:empty { display: none; }
+
+/* Inline (?) help affordance — small text-only button that opens a
+   tooltip / modal explainer. Distinct from the bordered action
+   buttons so it reads as text, not a control. */
+#sky-controls .help-btn {
+  background: transparent;
+  border: none;
+  color: var(--accent-2);
+  text-decoration: underline;
+  padding: 0.15rem 0.3rem;
+  font-size: 0.78rem;
+  cursor: help;
+}
+#sky-controls .help-btn:hover { color: var(--accent); background: transparent; }
+.control-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  padding: 0.4rem 0.6rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 6px;
+  border: 1px solid var(--grid);
+}
+.control-group-heading {
+  color: var(--accent);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-weight: 600;
+  margin-right: 0.4rem;
+  min-width: 5rem;
+}
+.control-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.control-divider {
+  width: 1px;
+  height: 1.4rem;
+  background: var(--grid);
+  margin: 0 0.2rem;
+}
+input[type="text"], input[type="number"], select {
+  background: var(--panel-2);
+  color: var(--fg);
+  border: 1px solid var(--grid);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.82rem;
+  font-family: inherit;
+}
+button {
+  background: var(--panel);
+  color: var(--fg);
+  border: 1px solid var(--grid);
+  padding: 0.25rem 0.7rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-family: inherit;
+}
+button:hover:not(:disabled) { background: #243057; }
+button.primary {
+  background: var(--accent);
+  color: #0c1326;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+button.primary:hover:not(:disabled) {
+  background: var(--accent-2);
+  border-color: var(--accent-2);
+}
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+#diagram-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+#diagram-controls select,
+#diagram-controls button,
+#diagram-controls input[type="text"] {
+  background: var(--panel-2);
+  color: var(--fg);
+  border: 1px solid var(--grid);
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.82rem;
+  font-family: inherit;
+}
+#diagram-controls button { cursor: pointer; }
+#diagram-controls button:hover { background: #243057; }
+#graph-options { margin-top: 0.5rem; }
+#graph-options summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.82rem;
+  padding: 0.2rem 0;
+}
+#aladin-lite-div {
+  flex: 1;
+  min-height: 320px;
+  background: #000;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* Diagram fills its panel — flex: 1 + min-height: 0 lets it shrink
+   below its intrinsic content size, so the SVG actually expands to
+   fill the remaining vertical space. */
+#diagram {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.hubble-chart-host {
+  flex: 1;
+  min-height: 320px;
+  width: 100%;
+  position: relative;
+  cursor: grab;
+}
+.hubble-chart-host:active { cursor: grabbing; }
+.hubble-svg { display: block; width: 100%; height: 100%; }
+.hubble-svg .axis text { fill: var(--muted); font-size: 11px; }
+.hubble-svg .axis path,
+.hubble-svg .axis line { stroke: var(--muted); }
+.hubble-svg .axis-label { fill: var(--muted); font-size: 12px; }
+.hubble-svg .gridline { stroke: var(--grid); stroke-width: 0.5; opacity: 0.6; }
+.hubble-svg .zero-line { stroke: var(--line); stroke-dasharray: 3,3; }
+.hubble-svg .best-fit-line { stroke: var(--accent-2); stroke-width: 2; opacity: 0.85; }
+.hubble-svg .ref-line { stroke: var(--muted); stroke-dasharray: 5,4; opacity: 0.6; }
+.hubble-svg .ref-label { fill: var(--muted); font-size: 11px; }
+.hubble-svg circle.galaxy { stroke: transparent; stroke-width: 2; }
+.hubble-svg circle.galaxy.tag-direct       { fill: var(--accent-good); }
+.hubble-svg circle.galaxy.tag-extrapolated { fill: var(--accent-2); }
+/* Anomaly takes precedence over the tag colour for non-curated
+   galaxies (hubble1929 entries etc.) — these are pedagogically
+   interesting precisely because they don't follow the line, so we
+   want the warning colour to dominate. Curated anomalies live in the
+   `anomalies` set which already paints them red. */
+.hubble-svg circle.galaxy.anomaly { fill: var(--warn); }
+/* Curated galaxies fill comes from inline style="fill: <set color>"
+   set on the circle in JS; the yellow stroke here distinguishes them
+   from search-found green/cyan dots. */
+.hubble-svg circle.galaxy.curated { stroke: var(--accent); }
+.hubble-svg circle.galaxy.selected { stroke: #ffffff; }
+
+/* --- Diagram legend (Direct / Extrapolated / what's this?) --- */
+.diagram-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  padding: 0 0.2rem 0.4rem;
+}
+.diagram-legend .legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.diagram-legend .legend-swatch {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+.diagram-legend .legend-swatch.tag-direct       { background: var(--accent-good); }
+.diagram-legend .legend-swatch.tag-extrapolated { background: var(--accent-2); }
+.diagram-legend .legend-help {
+  background: transparent;
+  border: none;
+  color: var(--accent-2);
+  text-decoration: underline;
+  padding: 0.1rem 0.25rem;
+  font-size: 0.78rem;
+  cursor: help;
+  font-family: inherit;
+}
+.diagram-legend .legend-help:hover { color: var(--accent); background: transparent; }
+
+/* --- Distance-method row in the data panel --- */
+.method-row {
+  background: var(--panel-2);
+  border-left: 3px solid var(--accent-good);
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem;
+  margin: 0.4rem 0 0.2rem;
+}
+.method-row.tag-extrapolated { border-left-color: var(--accent-2); }
+.method-row .method-label {
+  color: var(--muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.method-row .method-value {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  margin-top: 0.2rem;
+  font-size: 0.85rem;
+}
+.method-row .method-detail { color: var(--fg); }
+.tag-pill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.tag-pill.tag-direct {
+  background: rgba(155, 231, 196, 0.15);
+  color: var(--accent-good);
+  border: 1px solid var(--accent-good);
+}
+.tag-pill.tag-extrapolated {
+  background: rgba(108, 196, 255, 0.15);
+  color: var(--accent-2);
+  border: 1px solid var(--accent-2);
+}
+
+/* Hover affordance on the axis tick areas — so the user knows they
+   can mouse-down there to "hold" that axis for a single-axis zoom. */
+.hubble-svg .x-axis,
+.hubble-svg .y-axis { cursor: ew-resize; }
+.hubble-svg .y-axis { cursor: ns-resize; }
+
+#info-panel h2,
+h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  color: var(--accent);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+#data-panel {
+  background: var(--panel-2);
+  padding: 0.6rem 0.7rem;
+  border-radius: 6px;
+  margin-bottom: 0.6rem;
+  min-height: 80px;
+  /* Independent vertical scroll for the selected-galaxy block, with
+     a hard cap so the galaxy-sets list below it never disappears
+     entirely — even when a galaxy has long anomaly text. */
+  flex: 0 1 auto;
+  max-height: 55%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.hint { color: var(--muted); font-size: 0.85rem; margin: 0; }
+
+/* --- Capability badges on galaxy markers + data panel --- */
+.cap-badges {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 6px;
+  font-size: 11px;
+}
+.cap-badge {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1px 6px;
+  color: var(--text-dim);
+}
+.cap-badge.on { color: var(--accent); border-color: var(--accent); }
+.cap-badge.anomaly { color: var(--warn); border-color: var(--warn); }
+
+/* --- Galaxy sets (right info panel) — same look as h-r-diagram --- */
+#galaxy-sets {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  /* Take whatever vertical space is left after the data-panel and
+     scroll independently. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 0.25rem;
+}
+.star-set {
+  background: var(--panel-2);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+}
+.star-set summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  list-style: none;
+}
+.star-set summary::-webkit-details-marker { display: none; }
+.star-set summary::before {
+  content: "▸";
+  color: var(--muted);
+  font-size: 0.7rem;
+  transition: transform 0.15s ease;
+}
+.star-set[open] summary::before { transform: rotate(90deg); }
+.set-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  /* Yellow border matches the curated-circle stroke on the Hubble
+     diagram, so a curated galaxy is visually consistent across the
+     set panel, the diagram, and (transitively) the user's mental
+     model — green/cyan = search-found, yellow-bordered = curated. */
+  border: 2px solid var(--accent);
+}
+.set-label { flex: 1; color: var(--fg); }
+.set-count {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+  background: var(--panel);
+  border-radius: 10px;
+  padding: 0 0.45rem;
+}
+.set-description {
+  margin: 0.4rem 0 0.5rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+.set-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.4rem;
+}
+.set-actions button {
+  background: var(--panel);
+  color: var(--fg);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.set-actions button:hover { background: #243057; }
+.set-vis {
+  color: var(--muted);
+  font-size: 0.78rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.set-stars {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.set-stars li {
+  padding: 0.25rem 0.5rem;
+  margin: 0.1rem 0;
+  background: var(--panel);
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.82rem;
+}
+.set-stars li:hover { background: #243057; }
+.set-stars li.added { opacity: 0.5; }
+.set-stars li .meta {
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-align: right;
+}
+
+/* --- Collapsible info sections inside the modal panels (How it
+   works / How we know / Diagram guide). Mirrors h-r-diagram's
+   modal section style — each h4-style heading becomes a clickable
+   `<details>` row with a ▸/▾ toggle, content collapsed below. */
+.info-section {
+  background: var(--panel-2);
+  border-radius: 6px;
+  margin: 0.4rem 0;
+  padding: 0;
+  border: 1px solid var(--grid);
+  overflow: hidden;
+}
+.info-section > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.8rem;
+  color: var(--accent-2);
+  font-weight: 600;
+  font-size: 0.95rem;
+  user-select: none;
+}
+.info-section > summary::-webkit-details-marker { display: none; }
+.info-section > summary::before {
+  content: "▸";
+  color: var(--muted);
+  font-size: 0.75rem;
+  transition: transform 0.15s ease;
+}
+.info-section[open] > summary::before { transform: rotate(90deg); }
+.info-section > summary:hover { background: rgba(108, 196, 255, 0.08); }
+.info-section-body {
+  padding: 0.5rem 0.9rem 0.7rem;
+  border-top: 1px solid var(--grid);
+}
+.info-section-body p:first-child { margin-top: 0.3rem; }
+.info-section-body p:last-child { margin-bottom: 0.3rem; }
+
+/* --- Diagram frames inside How we know --- */
+.hwk-diagram {
+  background: var(--bg);
+  border: 1px solid var(--grid);
+  border-radius: 4px;
+  padding: 6px;
+  margin: 8px 0;
+}
+.hwk-diagram svg { display: block; margin: 0 auto; }
+
+/* --- Cepheid panel (LaTeX + collapsible) --- */
+.cepheid-panel { display: flex; flex-direction: column; gap: 8px; }
+.cepheid-top-actions {
+  position: sticky;
+  top: -4px;
+  background: var(--panel);
+  padding: 6px 0;
+  z-index: 5;
+  border-bottom: 1px solid var(--grid);
+}
+.cepheid-intro { margin: 0; }
+.cepheid-step {
+  background: var(--panel-2);
+  border-radius: 4px;
+  padding: 6px 10px;
+}
+.cepheid-step > summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 14px;
+  padding: 4px 0;
+  user-select: none;
+}
+.cepheid-step > summary::-webkit-details-marker { display: none; }
+.cepheid-step > summary::before {
+  content: "▶";
+  display: inline-block;
+  margin-right: 6px;
+  font-size: 10px;
+  transform: rotate(0deg);
+  transition: transform 0.12s ease-out;
+  color: var(--muted);
+}
+.cepheid-step[open] > summary::before { transform: rotate(90deg); }
+.cepheid-step-body { padding-top: 6px; }
+.formula-katex { margin: 8px 0; }
+.cepheid-mini-aladin {
+  border: 1px solid var(--grid);
+}
+.cepheid-plot {
+  background: var(--bg);
+  border-radius: 4px;
+  padding: 4px;
+}
+
+/* --- Modal panels (Cepheid / Spectrum / Light-curve) --- */
+.hb-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 16, 32, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.hb-modal {
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 20px;
+  width: min(900px, 96vw);
+  max-height: 92vh;
+  overflow-y: auto;
+}
+.hb-modal h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: var(--accent);
+}
+.hb-modal .modal-close {
+  float: right;
+}
+.hb-modal .step {
+  margin: 12px 0;
+  padding: 10px;
+  background: var(--panel-2);
+  border-radius: 4px;
+}
+.hb-modal .step-num {
+  display: inline-block;
+  background: var(--accent);
+  color: #042a4a;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  text-align: center;
+  font-weight: 700;
+  margin-right: 8px;
+}
+.hb-modal .formula {
+  font-family: "SFMono-Regular", Consolas, monospace;
+  background: var(--bg);
+  padding: 8px 10px;
+  border-radius: 4px;
+  border-left: 3px solid var(--accent);
+  margin: 6px 0;
+}
+.hb-modal .answer {
+  color: var(--good);
+  font-weight: 600;
+  font-size: 16px;
+}
+
+/* --- Best-fit line readout --- */
+.h0-readout {
+  background: var(--panel-2);
+  padding: 8px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+.h0-readout .h0-value {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 16px;
+}
+
+/* --- Galaxy thumbnail + data panel header --- */
+.data-panel-header {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+.data-panel-header-text { flex: 1; min-width: 0; }
+.galaxy-title { font-size: 16px; font-weight: 600; }
+.galaxy-thumb {
+  flex-shrink: 0;
+  background: var(--bg);
+  border: 1px solid var(--grid);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.galaxy-thumb img { object-fit: cover; }
+.galaxy-thumb-fallback {
+  font-size: 10px;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* --- Headline stats (data panel) — match h-r-diagram styling --- */
+.headline-stat {
+  background: var(--panel-2);
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+  margin-bottom: 0.35rem;
+}
+.headline-label {
+  color: var(--muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.headline-value {
+  color: var(--accent);
+  font-size: 1.05rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.1rem;
+}
+.secondary-row {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0.4rem 0 0.2rem;
+}
+.secondary-row strong { color: var(--fg); }
+
+a, a:visited { color: var(--link); }
+
+/* --- Aladin fullscreen --------------------------------------------
+   When the user clicks Aladin's fullscreen toggle (or hits F11 from
+   within the sky panel), the SkyViewer adds `aladin-fullscreen` to
+   the body. Hide every other pane and pin the sky panel to the full
+   viewport so the Hubble diagram and the right-hand info panel
+   don't overlay on top of the sky map. The Search / Find / Jump-to
+   controls stay because they live inside #sky-panel.
+
+   Some environments (iframes without `allow="fullscreen"`) fall back
+   to a CSS-only fullscreen, which is why we force position+z-index
+   on the sky panel rather than relying purely on `display: none` on
+   its siblings. Same approach as h-r-diagram. */
+body.aladin-fullscreen header,
+body.aladin-fullscreen #action-bar,
+body.aladin-fullscreen #diagram-panel,
+body.aladin-fullscreen #info-panel { display: none !important; }
+body.aladin-fullscreen #app {
+  padding: 0 !important;
+  gap: 0 !important;
+}
+body.aladin-fullscreen main {
+  display: block !important;
+  height: 100vh !important;
+}
+body.aladin-fullscreen #sky-panel {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 99999 !important;
+  border-radius: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+}
+
+/* --- Scrollbars ---------------------------------------------------
+   Default OS scrollbars (white / grey) clash with the dark blue
+   palette. Style them to blend with --panel and pop on hover in
+   --accent-2. Applies globally inside the app.
+
+   Firefox uses `scrollbar-color: thumb track` and `scrollbar-width`;
+   Chromium / Safari / Edge use the legacy ::-webkit-scrollbar rules.
+   Both are kept in sync below. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
+}
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 4px;
+  border: 1px solid var(--panel);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-2);
+}
+*::-webkit-scrollbar-corner { background: transparent; }

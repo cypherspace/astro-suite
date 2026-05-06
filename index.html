@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Astro Suite</title>
+    <link rel="stylesheet" href="/src/style.css" />
+    <link
+      rel="stylesheet"
+      href="https://aladin.cds.unistra.fr/AladinLite/api/v3/latest/aladin.css"
+    />
+    <script
+      src="https://aladin.cds.unistra.fr/AladinLite/api/v3/latest/aladin.js"
+      charset="utf-8"
+    ></script>
+  </head>
+  <body>
+    <div id="app">
+      <nav id="tab-bar" aria-label="App tabs"></nav>
+      <header>
+        <div class="title-block">
+          <h1 id="app-title">Astro Suite</h1>
+          <p class="subtitle" id="app-subtitle">
+            Pick a tab to open an interactive diagram.
+          </p>
+        </div>
+      </header>
+      <nav id="action-bar" class="header-buttons" aria-label="Information"></nav>
+      <main id="app-main"></main>
+      <div id="sky-fullscreen-strip" hidden></div>
+    </div>
+    <script type="module" src="/src/shell.ts"></script>
+  </body>
+</html>
