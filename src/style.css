@@ -843,13 +843,18 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   cursor: grab;
 }
 .hubble-chart-host:active { cursor: grabbing; }
-.hubble-svg { display: block; width: 100%; height: 100%; }
-.hubble-svg .axis text { fill: var(--muted); font-size: 11px; }
-.hubble-svg .axis path,
-.hubble-svg .axis line { stroke: var(--muted); }
-.hubble-svg .axis-label { fill: var(--muted); font-size: 12px; }
-.hubble-svg .gridline { stroke: var(--grid); stroke-width: 0.5; opacity: 0.6; }
-.hubble-svg .zero-line { stroke: var(--line); stroke-dasharray: 3,3; }
+
+/* Generic diagram axis / gridline / label styling — applies to both
+   the H-R and Hubble diagrams (both render into #diagram). Galaxy-
+   or star-specific marker styling stays scoped under .hubble-svg /
+   .point in their per-app CSS below. */
+#diagram svg { display: block; width: 100%; height: 100%; }
+#diagram .axis text { fill: var(--muted); font-size: 11px; }
+#diagram .axis path,
+#diagram .axis line { stroke: var(--muted); }
+#diagram .axis-label { fill: var(--fg); font-size: 12px; }
+#diagram .gridline { stroke: var(--grid); stroke-width: 0.5; opacity: 0.5; }
+#diagram .zero-line { stroke: var(--muted); stroke-dasharray: 3,3; }
 .hubble-svg .best-fit-line { stroke: var(--accent-2); stroke-width: 2; opacity: 0.85; }
 .hubble-svg .ref-line { stroke: var(--muted); stroke-dasharray: 5,4; opacity: 0.6; }
 .hubble-svg .ref-label { fill: var(--muted); font-size: 11px; }

@@ -25,7 +25,6 @@ import { HowWeKnow } from "./ui/howWeKnow";
 import { DiagramGuide } from "./ui/diagramGuide";
 import { Walkthrough } from "./ui/walkthrough";
 import { Hubble1929Tour } from "./ui/hubble1929Tour";
-import { openModal } from "../../shared/modal";
 import { loadDiagram, saveDiagram } from "./store";
 import type { AxisConfig, Galaxy, PlottedGalaxy } from "./types";
 
@@ -62,23 +61,31 @@ const SCAFFOLD_HTML = `
       <button id="goto-hudf-btn" title="Go to the Hubble Ultra Deep Field">HUDF</button>
       <button id="goto-coma-btn" title="Go to the Coma Cluster (rich SDSS region)">Coma</button>
       <button id="goto-virgo-btn" title="Go to the Virgo Cluster">Virgo</button>
-      <button id="jumpto-help-btn" type="button" class="help-btn" aria-label="What are these jump-to shortcuts?" title="What is this?">(what is this?)</button>
     </div>
     <div class="control-group">
       <span class="control-group-heading">Search</span>
-      <button id="search-btn" class="primary" title="Search Cosmicflows-3/4, SDSS and 2MRS for galaxies in the visible part of the sky (doesn't add them yet)">Search catalogs</button>
+      <button id="search-btn" class="primary" title="Search Cosmicflows-3/4, SDSS and 2MRS for galaxies in the visible part of the sky (doesn't add them yet)">Search Galaxies</button>
+      <span class="control-divider" aria-hidden="true"></span>
       <button id="add-all-btn" title="Add every search result to the chart">Add all</button>
       <button id="clear-candidates-btn" title="Clear search-result markers">Clear results</button>
+      <label class="control-pair">
+        <span>sort</span>
+        <select id="sort-select" title="How to pick which galaxies come back from the search">
+          <option value="closest">Closest</option>
+          <option value="brightest">Brightest</option>
+          <option value="random">Random</option>
+        </select>
+      </label>
       <label class="control-pair">
         <span>limit</span>
         <input id="region-limit" type="number" min="1" max="500" value="50" />
       </label>
     </div>
     <div class="control-group">
-      <span class="control-group-heading">Markers</span>
+      <span class="control-group-heading">Map options</span>
       <label class="control-pair">
         <input type="checkbox" id="opt-show-markers" checked />
-        Galaxy markers
+        Named markers
       </label>
       <label class="control-pair">
         <input type="checkbox" id="opt-show-constellations" />
@@ -126,6 +133,7 @@ class HubbleApp {
   private aladinEl: HTMLElement;
   private searchResults = new Map<string, Galaxy>();
   private inflightSearch: AbortController | null = null;
+  private searchSortBy: "closest" | "brightest" | "random" = "closest";
   private headerButtonsEl: HTMLElement;
   private guideBtnRef: HTMLButtonElement | null = null;
   private fullscreenStripEl: HTMLElement;
@@ -222,6 +230,25 @@ class HubbleApp {
     const addAllBtn = required(root, "add-all-btn") as HTMLButtonElement;
     const clearCandidatesBtn = required(root, "clear-candidates-btn") as HTMLButtonElement;
     const regionLimit = required(root, "region-limit") as HTMLInputElement;
+    const sortSelect = required(root, "sort-select") as HTMLSelectElement;
+    try {
+      const saved = localStorage.getItem("astro-suite.hubble.search-order");
+      if (saved === "closest" || saved === "brightest" || saved === "random") {
+        sortSelect.value = saved;
+        this.searchSortBy = saved;
+      }
+    } catch {
+      /* ignore */
+    }
+    sortSelect.addEventListener("change", () => {
+      const v = sortSelect.value as "closest" | "brightest" | "random";
+      this.searchSortBy = v;
+      try {
+        localStorage.setItem("astro-suite.hubble.search-order", v);
+      } catch {
+        /* ignore */
+      }
+    });
     const showMarkers = required(root, "opt-show-markers") as HTMLInputElement;
     const showConstellations = required(root, "opt-show-constellations") as HTMLInputElement;
     const showMapInfo = required(root, "opt-show-mapinfo") as HTMLInputElement;
@@ -298,36 +325,6 @@ class HubbleApp {
       });
     }
 
-    const jumpHelp = root.querySelector<HTMLButtonElement>("#jumpto-help-btn");
-    jumpHelp?.addEventListener("click", () => {
-      const { inner } = openModal("Jump-to shortcuts");
-      inner.innerHTML = `
-        <p>These shortcuts will take you directly to some interesting
-        areas of the night sky containing visible galaxies.</p>
-        <p>The <strong>Virgo cluster</strong> is a group of galaxies in
-        relatively close proximity to each other, and relatively close
-        to Earth. Edwin Hubble observed these and used some of them in
-        his original graph.</p>
-        <p>The <strong>Coma cluster</strong> is a group of over 1000
-        identified galaxies. Along with the Leo cluster it makes the
-        Coma Supercluster.</p>
-        <p><strong>HDF-N</strong> refers to the Hubble Deep Field —
-        North, a very small area of sky that the Hubble Space Telescope
-        explored in great detail, taking photos over a continuous
-        period of 11 days, finding over 3000 galaxies in a patch of
-        sky that otherwise looks empty. Some of the light from these
-        galaxies is over 13 billion years old.</p>
-        <p><strong>HUDF</strong> is the Hubble <em>Ultra</em> Deep
-        Field, an even more closely explored patch of sky containing
-        over 10,000 galaxies, including the most distant galaxy ever
-        detected.</p>
-        <p>We don't have redshift data for all of these, but try
-        looking at them in the DSS2 (colour) sky map, and then in the
-        HST Press Release Imagery, just to compare what a normal
-        telescope can pick out, compared to the Hubble Space
-        Telescope.</p>
-      `;
-    });
   }
 
   private renderHeaderButtons(): void {
@@ -562,9 +559,10 @@ class HubbleApp {
         signal: ctrl.signal,
       });
       if (ctrl.signal.aborted) return;
-      const candidates = result.galaxies
+      const rawCandidates = result.galaxies
         .map((row) => searchedGalaxyToGalaxy(row))
         .filter((g) => !this.plotted.has(g.id));
+      const candidates = sortGalaxies(rawCandidates, this.searchSortBy, ra, dec);
       this.searchResults.clear();
       for (const g of candidates) this.searchResults.set(g.id, g);
       await this.skyAdapter.setCandidates(candidates);
@@ -730,6 +728,46 @@ function required(root: ParentNode, id: string): HTMLElement {
 
 function clamp(v: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, v));
+}
+
+// Sort galaxy candidates client-side for the user-chosen ordering.
+// "closest" — angular distance to the reticle on the sky.
+// "brightest" — ascending plottedDistanceMpc as a proxy (galaxies
+//   with shorter distances are usually the brightest in apparent terms;
+//   actual catalog mag isn't always populated).
+// "random" — Fisher-Yates shuffle.
+function sortGalaxies(
+  rows: Galaxy[],
+  sortBy: "closest" | "brightest" | "random",
+  centerRaDeg: number,
+  centerDecDeg: number,
+): Galaxy[] {
+  if (sortBy === "random") {
+    const out = rows.slice();
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
+  }
+  if (sortBy === "brightest") {
+    return rows.slice().sort((a, b) => a.distanceMpc - b.distanceMpc);
+  }
+  const cRa = (centerRaDeg * Math.PI) / 180;
+  const cDec = (centerDecDeg * Math.PI) / 180;
+  const sinCDec = Math.sin(cDec);
+  const cosCDec = Math.cos(cDec);
+  return rows
+    .slice()
+    .map((g) => {
+      const ra = (g.ra * Math.PI) / 180;
+      const dec = (g.dec * Math.PI) / 180;
+      const cosD = sinCDec * Math.sin(dec) + cosCDec * Math.cos(dec) * Math.cos(ra - cRa);
+      const ang = Math.acos(Math.max(-1, Math.min(1, cosD)));
+      return { g, ang };
+    })
+    .sort((a, b) => a.ang - b.ang)
+    .map((x) => x.g);
 }
 
 function formatSourceList(sources: ("cf3" | "cf4" | "sdss" | "2mrs")[]): string {

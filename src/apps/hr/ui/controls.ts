@@ -174,21 +174,24 @@ export class Controls {
       zLabel,
       button("−", () => this.cb.onZoomOut(), "Zoom out"),
       button("+", () => this.cb.onZoomIn(), "Zoom in"),
-      button("Reset", () => this.cb.onZoomReset(), "Reset zoom"),
     );
     displayGroup.appendChild(zoomCluster);
     this.container.appendChild(displayGroup);
 
-    // ---- group: edit ----
-    const editGroup = group("Edit");
-    editGroup.appendChild(button("Clear all", () => this.cb.onClearAll()));
-    editGroup.appendChild(
-      button("Remove selected", () => this.cb.onClearSelected()),
+    // ---- group: diagram (clear / reset). Same group name and button
+    //      labels as the Hubble app's Diagram group. ----
+    const diagramGroup = group("Diagram");
+    diagramGroup.appendChild(button("Clear all", () => this.cb.onClearAll()));
+    diagramGroup.appendChild(
+      button("Clear selected", () => this.cb.onClearSelected()),
     );
-    this.container.appendChild(editGroup);
+    diagramGroup.appendChild(
+      button("Reset zoom", () => this.cb.onZoomReset()),
+    );
+    this.container.appendChild(diagramGroup);
 
     // ---- group: save / load ----
-    const saveGroup = group("Save & load");
+    const saveGroup = group("Save / load");
     const nameInput = document.createElement("input");
     nameInput.type = "text";
     nameInput.placeholder = "chart name";

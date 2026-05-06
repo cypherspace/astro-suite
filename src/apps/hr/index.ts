@@ -53,6 +53,10 @@ const SCAFFOLD_HTML = `
         <option value="P/SDSS9/color">SDSS</option>
         <option value="P/2MASS/color">2MASS (infrared)</option>
       </select>
+      <label class="control-pair" title="Layer Hubble Space Telescope imagery on top of the base survey, where it's available">
+        <input type="checkbox" id="opt-hst-overlay" />
+        HST overlay
+      </label>
     </div>
     <div class="control-group">
       <span class="control-group-heading">Jump to</span>
@@ -64,7 +68,7 @@ const SCAFFOLD_HTML = `
     <div class="control-group">
       <span class="control-group-heading">Search</span>
       <button id="search-btn" class="primary" title="Look up real stars in the visible part of the sky (doesn't add them yet)">
-        Search
+        Search Stars
       </button>
       <span class="control-divider" aria-hidden="true"></span>
       <button id="add-all-btn" title="Add every search result to the chart">Add all</button>
@@ -85,12 +89,12 @@ const SCAFFOLD_HTML = `
     <div class="control-group">
       <span class="control-group-heading">Map options</span>
       <label class="control-pair">
-        <input type="checkbox" id="opt-show-constellations" />
-        Constellations
-      </label>
-      <label class="control-pair">
         <input type="checkbox" id="opt-show-markers" checked />
         Named markers
+      </label>
+      <label class="control-pair">
+        <input type="checkbox" id="opt-show-constellations" />
+        Constellations
       </label>
       <label class="control-pair">
         <input type="checkbox" id="opt-show-mapinfo" />
@@ -258,6 +262,10 @@ class HrApp {
     });
     surveySelect.addEventListener("change", () => {
       void this.skyAdapter.setSurvey(surveySelect.value);
+    });
+    const hstOverlay = root.querySelector<HTMLInputElement>("#opt-hst-overlay");
+    hstOverlay?.addEventListener("change", () => {
+      void this.sky.setHstOverlayVisible(hstOverlay.checked);
     });
     searchBtn.addEventListener("click", () => {
       const limit = clamp(parseInt(regionLimit.value, 10) || 50, 1, 500);
