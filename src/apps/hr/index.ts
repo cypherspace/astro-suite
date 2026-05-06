@@ -6,6 +6,7 @@ import {
   type FullscreenSlotHandle,
 } from "../../shared/aladin/fullscreenSlot";
 import { Walkthrough } from "./ui/walkthrough";
+import { Russell1914Tour } from "./ui/russell1914Tour";
 import { STAR_SETS, findStarById, type StarSet } from "./data/sampleStars";
 import { plotStar } from "./data/derive";
 import {
@@ -314,6 +315,7 @@ class HrApp {
           getCurrentOverlay: () => this.diagram.getOverlay(),
         }).open();
       }],
+      ["russell1914-btn", "Russell's 1914 graph", "Step through Henry Norris Russell's original 1914 H-R diagram, star by star", () => this.runRussell1914Tour()],
       ["tour-btn", "Tour", "Replay the on-screen tour", () => {
         Walkthrough.reset();
         new Walkthrough().start();
@@ -342,6 +344,35 @@ class HrApp {
       this.skyControlsEl,
       this.fullscreenStripEl,
     );
+  }
+
+  private runRussell1914Tour(): void {
+    const tour = new Russell1914Tour({
+      skyViewer: this.skyAdapter,
+      plotStarRecord: (star) => {
+        if (star.teff == null) return;
+        const plotted = plotStar(star);
+        this.plotted.set(plotted.id, plotted);
+        this.refresh();
+      },
+      clearRussell1914: () => {
+        for (const id of Array.from(this.plotted.keys())) {
+          if (id.startsWith("russell1914-")) this.plotted.delete(id);
+        }
+        this.refresh();
+      },
+      getAxes: () => this.axes,
+      setAxes: (axes) => {
+        this.axes = axes;
+        this.controls.setAxes(axes);
+        this.diagram.setAxes(axes);
+      },
+      getPlotted: () => Array.from(this.plotted.values()),
+      onClose: () => {
+        this.skyStatusEl.textContent = "Russell's 1914 tour finished.";
+      },
+    });
+    void tour.start();
   }
 
   private renderStarSets(): void {

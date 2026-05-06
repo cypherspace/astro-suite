@@ -166,6 +166,14 @@ export class HrSkyAdapter {
   setSurvey(survey: string): Promise<void> {
     return this.core.setSurvey(survey);
   }
+  animateRaDecFov(
+    ra: number,
+    dec: number,
+    fovDeg: number,
+    durationMs: number,
+  ): Promise<void> {
+    return this.core.animateRaDecFov(ra, dec, fovDeg, durationMs);
+  }
 
   /**
    * Detach all per-app catalogs, click handlers, and overlays so the
