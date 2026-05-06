@@ -1,11 +1,15 @@
 // Russell 1914 guided-tour dataset.
 //
-// Henry Norris Russell's "Relations Between the Spectra and Other
-// Characteristics of the Stars" (Popular Astronomy 22, 275–294 / 331–351,
-// 1914) plotted around 200 stars on the diagram we now call the
-// Hertzsprung–Russell diagram. The paper does not list which 200; the
-// figure is a dense scatter of unlabelled points. Russell tells us in
-// the prose that the data came from four named pools:
+// Russell, H. N. 1914, "Relations Between the Spectra and Other
+// Characteristics of the Stars", Popular Astronomy, 22, 275–294 and
+// 331–351. ADS scan:
+//   https://ui.adsabs.harvard.edu/scan/manifest/1914PA.....22..331R
+//
+// Russell plotted around 200 stars on the diagram we now call the
+// Hertzsprung–Russell diagram (his Figure 3, in part 2 of the paper).
+// The paper does not list which 200; the figure is a dense scatter of
+// unlabelled points. Russell tells us in the prose that the data came
+// from four named pools:
 //
 //   1. Annie Jump Cannon's Harvard spectral classifications (the
 //      Henry Draper precursor work).

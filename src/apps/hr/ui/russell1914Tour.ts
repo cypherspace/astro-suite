@@ -137,9 +137,13 @@ export class Russell1914Tour {
     const wrap = document.createElement("figure");
     wrap.id = "r1914-split-image";
     wrap.innerHTML = `
-      <img src="./data/russell1914-original.svg"
-           alt="After Russell (1914), Figure 1 — absolute magnitude vs. spectral type for ~200 stars" />
-      <figcaption>After Russell (1914), Figure 1.</figcaption>
+      <img src="./data/russell1914-original.jpeg"
+           alt="Russell (1914), Figure 3 — absolute magnitude vs. spectral type for ~200 stars" />
+      <figcaption>
+        Russell (1914), Figure 3.
+        <a href="https://ui.adsabs.harvard.edu/scan/manifest/1914PA.....22..331R"
+           target="_blank" rel="noopener">ADS scan</a>
+      </figcaption>
     `;
     diagramPanel.insertBefore(wrap, diagramPanel.firstChild);
     document.body.classList.add("r1914-split-canvas");
@@ -375,7 +379,10 @@ export class Russell1914Tour {
     const html = `
       <p>In 1914, Henry Norris Russell published a paper called
         <em>"Relations Between the Spectra and Other Characteristics
-        of the Stars"</em>.</p>
+        of the Stars"</em>
+        (<a href="https://ui.adsabs.harvard.edu/scan/manifest/1914PA.....22..331R"
+            target="_blank" rel="noopener">Popular Astronomy 22, 275–294
+        and 331–351 — ADS scan</a>).</p>
       <p>It was the first time anyone had drawn what we now call the
         Hertzsprung–Russell diagram — the single most useful chart in
         all of stellar astrophysics. Russell plotted around 200 stars
