@@ -477,6 +477,43 @@ body:not(.view-info-open) .aladin-cooFrame {
   display: none !important;
 }
 
+/* Custom +/- zoom buttons injected by SkyViewerCore. Positioned over
+   the Aladin canvas (bottom-left) so they don't collide with Aladin's
+   own fullscreen control (top-right). */
+#aladin-lite-div .sky-zoom-control {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 10;
+}
+#aladin-lite-div .sky-zoom-control button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  font-weight: 600;
+  color: var(--fg);
+  background: rgba(19, 26, 48, 0.78);
+  border: 1px solid var(--grid);
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#aladin-lite-div .sky-zoom-control button:hover {
+  background: var(--panel-2);
+  border-color: var(--accent-2);
+}
+#aladin-lite-div .sky-zoom-control button:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+}
+
 /* ===========================================================
    Chrome-style tab bar — Variant B: full-bleed strip with subtle
    dark gradient, tabs flush at the very top of the viewport, active
@@ -824,6 +861,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   background: #000;
   border-radius: 4px;
   overflow: hidden;
+  position: relative;
 }
 
 /* Diagram fills its panel — flex: 1 + min-height: 0 lets it shrink
