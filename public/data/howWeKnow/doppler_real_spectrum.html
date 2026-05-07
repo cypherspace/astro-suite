@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Doppler Shift of a Real Stellar Spectrum</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(ellipse at center, #0a0420 0%, #02010a 100%);
+    color: #e8eef7;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+  }
+  h1 {
+    font-size: 1.7em;
+    margin-bottom: 6px;
+    background: linear-gradient(90deg, #ff5252, #ffffff, #4fc3f7);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .subtitle {
+    font-size: 0.95em;
+    color: #95a5b8;
+    margin-bottom: 16px;
+    text-align: center;
+    max-width: 760px;
+  }
+  .panel {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid #2a1a4a;
+    border-radius: 10px;
+    padding: 16px 20px;
+  }
+  canvas#spectrum {
+    display: block;
+    background: #050214;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.12);
+    max-width: 100%;
+    height: auto;
+  }
+  .controls {
+    margin-top: 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    justify-content: center;
+  }
+  .control-group { display: flex; align-items: center; gap: 10px; }
+  label { font-size: 0.9em; color: #b8c5d6; }
+  input[type="range"] { width: 240px; accent-color: #b388ff; }
+  .speed-readout {
+    display: inline-block;
+    width: 80px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+  button {
+    background: linear-gradient(135deg, #b388ff, #7c4dff);
+    color: #ffffff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover { transform: translateY(-1px); }
+  .info {
+    margin-top: 14px;
+    font-size: 0.85em;
+    color: #95a5b8;
+    max-width: 800px;
+    text-align: center;
+    line-height: 1.5;
+  }
+  .readout {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 10px;
+    font-size: 0.9em;
+  }
+  .readout-box {
+    padding: 5px 12px;
+    border-radius: 5px;
+    background: rgba(255,255,255,0.06);
+    font-variant-numeric: tabular-nums;
+  }
+</style>
+</head>
+<body>
+  <div class="panel">
+    <canvas id="spectrum" width="900" height="420"></canvas>
+
+    <div class="controls">
+      <div class="control-group">
+        <label>Galaxy radial velocity:</label>
+        <input type="range" id="speedSlider" min="-300000" max="300000" step="1000" value="0">
+        <span id="speedVal" class="speed-readout">0</span> km/s
+      </div>
+      <button id="resetBtn">Reset to rest</button>
+    </div>
+
+    <div class="readout">
+      <div class="readout-box">Shift ratio (λ'/λ₀): <span id="ratioVal">1.000</span></div>
+      <div class="readout-box">z = <span id="zVal">0.000</span></div>
+      <div class="readout-box" id="directionBox" style="color:#e8eef7;">at rest</div>
+    </div>
+  </div>
+
+<script>
+const canvas = document.getElementById('spectrum');
+const ctx = canvas.getContext('2d');
+const W = canvas.width;
+const H = canvas.height;
+
+const speedSlider = document.getElementById('speedSlider');
+const speedVal = document.getElementById('speedVal');
+const resetBtn = document.getElementById('resetBtn');
+const ratioVal = document.getElementById('ratioVal');
+const zVal = document.getElementById('zVal');
+const directionBox = document.getElementById('directionBox');
+
+const C_KMS = 299792;
+
+// Plot range (nm) — UV through near-IR
+const WL_MIN = 100;
+const WL_MAX = 2000;
+
+const margin = { left: 60, right: 20, top: 30, bottom: 60 };
+const plotX0 = margin.left;
+const plotY0 = margin.top;
+const plotW = W - margin.left - margin.right;
+const plotH = H - margin.top - margin.bottom;
+
+// Stellar absorption lines (rest wavelengths in nm) — covering UV, visible, IR
+const ABSORPTION_LINES = [
+  // Hydrogen Lyman-alpha (UV)
+  { wl: 121.6, depth: 0.85, width: 1.5 },
+  // Mg II UV
+  { wl: 280, depth: 0.45, width: 2.0 },
+  // Calcium H & K
+  { wl: 393, depth: 0.55, width: 1.6 },
+  { wl: 397, depth: 0.50, width: 1.6 },
+  // Hydrogen Balmer (visible)
+  { wl: 410, depth: 0.35, width: 2.0 },
+  { wl: 434, depth: 0.45, width: 2.0 },
+  { wl: 486, depth: 0.55, width: 2.4 },
+  { wl: 656, depth: 0.65, width: 3.0 },
+  // Other visible lines
+  { wl: 466, depth: 0.20, width: 1.4 },
+  { wl: 518, depth: 0.30, width: 1.8 },
+  { wl: 527, depth: 0.18, width: 1.5 },
+  { wl: 589, depth: 0.35, width: 1.6 },
+  { wl: 630, depth: 0.18, width: 1.5 },
+  { wl: 770, depth: 0.22, width: 1.8 },
+  // Calcium IR triplet
+  { wl: 854, depth: 0.40, width: 2.5 },
+  { wl: 866, depth: 0.40, width: 2.5 },
+  // Hydrogen Paschen series
+  { wl: 1094, depth: 0.30, width: 4.0 },
+  { wl: 1282, depth: 0.40, width: 4.5 }
+];
+
+const T_STAR = 5800;
+
+function planck(wlNm, T) {
+  const h = 6.626e-34, c = 3e8, k = 1.381e-23;
+  const wl = wlNm * 1e-9;
+  const a = 2 * h * c * c / Math.pow(wl, 5);
+  const expo = h * c / (wl * k * T);
+  return a / (Math.exp(expo) - 1);
+}
+
+let PLANCK_MAX = 0;
+for (let wl = WL_MIN; wl <= WL_MAX; wl += 1) {
+  const v = planck(wl, T_STAR);
+  if (v > PLANCK_MAX) PLANCK_MAX = v;
+}
+
+function spectrumIntensity(wlObs, ratio) {
+  const wlRest = wlObs / ratio;
+  if (wlRest < 50 || wlRest > 5000) return 0;
+  let I = planck(wlRest, T_STAR) / PLANCK_MAX;
+  for (const line of ABSORPTION_LINES) {
+    const dx = (wlRest - line.wl) / line.width;
+    I *= (1 - line.depth * Math.exp(-dx * dx));
+  }
+  return Math.max(0, I);
+}
+
+function wlToX(wl) {
+  return plotX0 + (wl - WL_MIN) / (WL_MAX - WL_MIN) * plotW;
+}
+function iToY(i) {
+  return plotY0 + plotH - i * plotH;
+}
+
+// Approximate visible-spectrum colour for a wavelength (nm)
+function wavelengthToRGB(wl) {
+  let r, g, b;
+  if (wl >= 380 && wl < 440) { r = -(wl - 440) / 60; g = 0; b = 1; }
+  else if (wl < 490)         { r = 0; g = (wl - 440) / 50; b = 1; }
+  else if (wl < 510)         { r = 0; g = 1; b = -(wl - 510) / 20; }
+  else if (wl < 580)         { r = (wl - 510) / 70; g = 1; b = 0; }
+  else if (wl < 645)         { r = 1; g = -(wl - 645) / 65; b = 0; }
+  else if (wl <= 780)        { r = 1; g = 0; b = 0; }
+  else                       { r = 0; g = 0; b = 0; }
+  let factor = 1;
+  if (wl < 420) factor = 0.3 + 0.7 * (wl - 380) / 40;
+  else if (wl > 700) factor = 0.3 + 0.7 * (780 - wl) / 80;
+  return [Math.round(r * 255 * factor), Math.round(g * 255 * factor), Math.round(b * 255 * factor)];
+}
+
+// Region colours for non-visible bands (subdued — still distinct from background)
+function regionColour(wl) {
+  if (wl < 380) {
+    // UV: deep violet/blue, fading darker toward 100 nm
+    const t = Math.max(0, (wl - 100) / 280);
+    const v = 25 + t * 50;
+    return [Math.floor(v * 0.55), Math.floor(v * 0.35), Math.floor(v)];
+  }
+  if (wl > 780) {
+    // IR: dark red fading toward dark grey
+    const t = Math.min(1, (wl - 780) / (WL_MAX - 780));
+    const r = 90 * (1 - t * 0.8);
+    return [Math.floor(r), Math.floor(r * 0.18), Math.floor(r * 0.18)];
+  }
+  return wavelengthToRGB(wl);
+}
+
+function drawSpectralBackground() {
+  for (let px = 0; px < plotW; px++) {
+    const wl = WL_MIN + (px / plotW) * (WL_MAX - WL_MIN);
+    const [r, g, b] = regionColour(wl);
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillRect(plotX0 + px, plotY0, 1, plotH);
+  }
+}
+
+function drawAxes() {
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(plotX0, plotY0 + plotH);
+  ctx.lineTo(plotX0 + plotW, plotY0 + plotH);
+  ctx.moveTo(plotX0, plotY0);
+  ctx.lineTo(plotX0, plotY0 + plotH);
+  ctx.stroke();
+
+  ctx.fillStyle = '#d0d6e0';
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  for (let wl = 200; wl <= WL_MAX; wl += 200) {
+    const x = wlToX(wl);
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.beginPath();
+    ctx.moveTo(x, plotY0 + plotH);
+    ctx.lineTo(x, plotY0 + plotH + 4);
+    ctx.stroke();
+    ctx.fillText(wl, x, plotY0 + plotH + 6);
+  }
+  ctx.fillText('Wavelength (nm)', plotX0 + plotW / 2, plotY0 + plotH + 42);
+
+  // Region labels under the axis
+  ctx.font = 'bold 10px sans-serif';
+  ctx.textBaseline = 'middle';
+  const labelY = plotY0 + plotH + 24;
+  ctx.fillStyle = '#b8c5d6';
+  ctx.fillText('ULTRAVIOLET', (wlToX(WL_MIN) + wlToX(380)) / 2, labelY);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('VISIBLE', (wlToX(380) + wlToX(780)) / 2, labelY);
+  ctx.fillStyle = '#b8c5d6';
+  ctx.fillText('INFRARED', (wlToX(780) + wlToX(WL_MAX)) / 2, labelY);
+
+  // Visible-band boundary markers
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+  ctx.setLineDash([2, 3]);
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(wlToX(380), plotY0);
+  ctx.lineTo(wlToX(380), plotY0 + plotH);
+  ctx.moveTo(wlToX(780), plotY0);
+  ctx.lineTo(wlToX(780), plotY0 + plotH);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // y axis label
+  ctx.save();
+  ctx.translate(18, plotY0 + plotH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#d0d6e0';
+  ctx.font = '11px sans-serif';
+  ctx.fillText('Intensity (relative)', 0, 0);
+  ctx.restore();
+}
+
+// Mask the area ABOVE the curve with the panel background, leaving the rainbow
+// only visible underneath.
+function maskAboveCurve(ratio, maskColour) {
+  ctx.fillStyle = maskColour;
+  ctx.beginPath();
+  ctx.moveTo(plotX0, plotY0);
+  for (let px = 0; px <= plotW; px++) {
+    const wl = WL_MIN + (px / plotW) * (WL_MAX - WL_MIN);
+    const I = spectrumIntensity(wl, ratio);
+    ctx.lineTo(plotX0 + px, iToY(I));
+  }
+  ctx.lineTo(plotX0 + plotW, plotY0);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawCurveOutline(ratio, color, lineWidth, dashed) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineWidth;
+  if (dashed) ctx.setLineDash([5, 4]);
+  ctx.beginPath();
+  let started = false;
+  for (let px = 0; px <= plotW; px++) {
+    const wl = WL_MIN + (px / plotW) * (WL_MAX - WL_MIN);
+    const I = spectrumIntensity(wl, ratio);
+    const x = plotX0 + px;
+    const y = iToY(I);
+    if (!started) { ctx.moveTo(x, y); started = true; }
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  if (dashed) ctx.setLineDash([]);
+}
+
+const PLOT_BG = '#050214';
+
+function render() {
+  const v = parseFloat(speedSlider.value);
+  const beta = v / C_KMS;
+  const ratio = 1 + beta;
+
+  speedVal.textContent = v.toLocaleString('en-GB');
+  ratioVal.textContent = ratio.toFixed(3);
+  zVal.textContent = beta.toFixed(3);
+  if (Math.abs(v) < 500) {
+    directionBox.textContent = 'at rest';
+    directionBox.style.color = '#e8eef7';
+  } else if (v > 0) {
+    directionBox.textContent = '→ redshifted (receding)';
+    directionBox.style.color = '#ff5252';
+  } else {
+    directionBox.textContent = '← blueshifted (approaching)';
+    directionBox.style.color = '#4fc3f7';
+  }
+
+  // 1. Clear
+  ctx.fillStyle = PLOT_BG;
+  ctx.fillRect(0, 0, W, H);
+
+  // 2. Fill plot area with per-wavelength colour
+  drawSpectralBackground();
+
+  // 3. Mask the region ABOVE the observed spectrum curve with the plot background
+  maskAboveCurve(ratio, PLOT_BG);
+
+  // 4. Outline the observed (shifted) curve
+  drawCurveOutline(ratio, 'rgba(255,255,255,0.95)', 1.6, false);
+
+  // 5. Overlay the rest curve as a dashed reference
+  drawCurveOutline(1, 'rgba(255,255,255,0.45)', 1.2, true);
+
+  // 6. Axes on top
+  drawAxes();
+}
+
+speedSlider.oninput = render;
+resetBtn.onclick = () => { speedSlider.value = 0; render(); };
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Doppler Effect Animation</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: linear-gradient(180deg, #0a1628 0%, #1a2744 100%);
+    color: #e8eef7;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+  }
+  h1 {
+    font-size: 1.8em;
+    margin-bottom: 8px;
+    background: linear-gradient(90deg, #ff5252, #4fc3f7);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .subtitle {
+    font-size: 0.95em;
+    color: #95a5b8;
+    margin-bottom: 16px;
+  }
+  canvas {
+    background: #0d1a2f;
+    border-radius: 12px;
+    border: 1px solid #2a3a5a;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    max-width: 100%;
+    height: auto;
+  }
+  .controls {
+    margin-top: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.04);
+    padding: 14px 20px;
+    border-radius: 10px;
+    border: 1px solid #2a3a5a;
+  }
+  .control-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  label {
+    font-size: 0.9em;
+    color: #b8c5d6;
+  }
+  input[type="range"] {
+    width: 160px;
+    accent-color: #4fc3f7;
+  }
+  button {
+    background: linear-gradient(135deg, #4fc3f7, #29b6f6);
+    color: #0a1628;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  button:hover { transform: translateY(-1px); }
+  button:active { transform: translateY(0); }
+  .legend {
+    margin-top: 14px;
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    justify-content: center;
+    font-size: 0.85em;
+    color: #b8c5d6;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .swatch {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid;
+  }
+  .info {
+    margin-top: 12px;
+    font-size: 0.85em;
+    color: #95a5b8;
+    max-width: 700px;
+    text-align: center;
+    line-height: 1.5;
+  }
+  .freq-display {
+    display: flex;
+    gap: 30px;
+    margin-top: 10px;
+    font-size: 0.95em;
+  }
+  .freq-box {
+    padding: 6px 14px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.05);
+  }
+  .freq-high { color: #4fc3f7; border-left: 3px solid #4fc3f7; }
+  .freq-low { color: #ff5252; border-left: 3px solid #ff5252; }
+</style>
+</head>
+<body>
+  <canvas id="canvas" width="900" height="400"></canvas>
+
+  <div class="freq-display">
+    <div class="freq-box freq-high">Ahead (observer right): <span id="freqAhead">—</span> Hz</div>
+    <div class="freq-box freq-low">Behind (observer left): <span id="freqBehind">—</span> Hz</div>
+  </div>
+
+  <div class="controls">
+    <div class="control-group">
+      <label>Source speed:</label>
+      <input type="range" id="speedSlider" min="0" max="180" value="90">
+      <span id="speedVal">90</span> px/s
+    </div>
+    <div class="control-group">
+      <label>Frequency:</label>
+      <input type="range" id="freqSlider" min="0.5" max="3" step="0.1" value="1.5">
+      <span id="freqVal">1.5</span> Hz
+    </div>
+    <button id="resetBtn">Reset</button>
+    <button id="pauseBtn">Pause</button>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><span class="swatch" style="border-color:#4fc3f7;"></span>Compressed waves (higher pitch / blueshift)</div>
+    <div class="legend-item"><span class="swatch" style="border-color:#ff5252;"></span>Stretched waves (lower pitch / redshift)</div>
+    <div class="legend-item">🧍 Observers</div>
+  </div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width;
+const H = canvas.height;
+
+const speedSlider = document.getElementById('speedSlider');
+const freqSlider = document.getElementById('freqSlider');
+const speedVal = document.getElementById('speedVal');
+const freqVal = document.getElementById('freqVal');
+const resetBtn = document.getElementById('resetBtn');
+const pauseBtn = document.getElementById('pauseBtn');
+const freqAhead = document.getElementById('freqAhead');
+const freqBehind = document.getElementById('freqBehind');
+
+const SOUND_SPEED = 200; // px/s
+const BASE_FREQ_HZ = 440; // reference pitch for display
+
+let sourceSpeed = parseFloat(speedSlider.value);
+let emitFreq = parseFloat(freqSlider.value); // emissions per second
+let sourceX = 150;
+const sourceY = H / 2;
+let waves = []; // {x0, y0, t0}
+let lastEmit = 0;
+let paused = false;
+let lastTime = performance.now();
+
+const observers = [
+  { x: 60,  y: H / 2, label: '🧍' },
+  { x: W - 60, y: H / 2, label: '🧍' }
+];
+
+function reset() {
+  sourceX = 150;
+  waves = [];
+  lastEmit = 0;
+}
+
+speedSlider.oninput = () => {
+  sourceSpeed = parseFloat(speedSlider.value);
+  speedVal.textContent = sourceSpeed;
+};
+freqSlider.oninput = () => {
+  emitFreq = parseFloat(freqSlider.value);
+  freqVal.textContent = emitFreq.toFixed(1);
+};
+resetBtn.onclick = reset;
+pauseBtn.onclick = () => {
+  paused = !paused;
+  pauseBtn.textContent = paused ? 'Play' : 'Pause';
+  if (!paused) lastTime = performance.now();
+};
+
+function drawAmbulance(x, y) {
+  ctx.save();
+  ctx.translate(x, y);
+  // body
+  ctx.fillStyle = '#f5f5f5';
+  ctx.strokeStyle = '#1a2744';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(-30, -15, 60, 25, 4);
+  ctx.fill();
+  ctx.stroke();
+  // cab
+  ctx.fillStyle = '#e0e0e0';
+  ctx.beginPath();
+  ctx.roundRect(10, -22, 20, 12, 3);
+  ctx.fill();
+  ctx.stroke();
+  // red cross
+  ctx.fillStyle = '#e53935';
+  ctx.fillRect(-14, -8, 12, 4);
+  ctx.fillRect(-10, -12, 4, 12);
+  // window
+  ctx.fillStyle = '#4fc3f7';
+  ctx.fillRect(13, -19, 14, 8);
+  // wheels
+  ctx.fillStyle = '#1a1a1a';
+  ctx.beginPath(); ctx.arc(-15, 12, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(18, 12, 5, 0, Math.PI * 2); ctx.fill();
+  // flashing light
+  const flash = Math.sin(performance.now() / 100) > 0;
+  ctx.fillStyle = flash ? '#ff1744' : '#1a2744';
+  ctx.beginPath();
+  ctx.roundRect(-5, -27, 10, 6, 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawObserver(x, y) {
+  ctx.font = '28px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('🧍', x, y + 5);
+}
+
+// Compute observed frequency via classical Doppler
+// f' = f * c / (c - v_s * cos(theta))
+// where theta is angle between source velocity and direction to observer
+function observedFrequency(observerX) {
+  const dx = observerX - sourceX;
+  const dist = Math.abs(dx);
+  if (dist < 1) return emitFreq;
+  // source moves in +x direction at sourceSpeed
+  // component of velocity toward observer:
+  const vTowardObs = sourceSpeed * Math.sign(dx);
+  return emitFreq * SOUND_SPEED / (SOUND_SPEED - vTowardObs);
+}
+
+function update(dt) {
+  // move source
+  sourceX += sourceSpeed * dt;
+  if (sourceX > W - 100) {
+    sourceX = 150;
+    waves = [];
+  }
+  // emit waves at fixed frequency
+  lastEmit += dt;
+  const emitInterval = 1 / emitFreq;
+  while (lastEmit >= emitInterval) {
+    lastEmit -= emitInterval;
+    waves.push({ x0: sourceX, y0: sourceY, t0: 0 });
+  }
+  // age waves
+  for (const w of waves) w.t0 += dt;
+  // remove offscreen waves
+  waves = waves.filter(w => w.t0 * SOUND_SPEED < W * 1.5);
+}
+
+function draw() {
+  // clear
+  ctx.fillStyle = '#0d1a2f';
+  ctx.fillRect(0, 0, W, H);
+
+  // ground line
+  ctx.strokeStyle = '#2a3a5a';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 6]);
+  ctx.beginPath();
+  ctx.moveTo(0, sourceY + 25);
+  ctx.lineTo(W, sourceY + 25);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // wavefronts
+  for (const w of waves) {
+    const r = w.t0 * SOUND_SPEED;
+    if (r < 1) continue;
+    // alpha fades with age
+    const alpha = Math.max(0, 1 - w.t0 / 4);
+
+    // color: front of source = orange (compressed), behind = blue
+    // We'll color each wave based on position relative to current source
+    // Actually wave color depends on which side observer is on relative to emission point,
+    // but the visual effect of bunching is what shows the doppler. We'll color the
+    // arcs by which half of each circle: right half = ahead (orange), left = blue.
+    ctx.lineWidth = 1.8;
+
+    // right half (ahead of original emission point, where source is heading)
+    // — compressed wavefronts: BLUE (analogous to blueshift in light)
+    ctx.strokeStyle = `rgba(79, 195, 247, ${alpha})`;
+    ctx.beginPath();
+    ctx.arc(w.x0, w.y0, r, -Math.PI / 2, Math.PI / 2);
+    ctx.stroke();
+
+    // left half (behind) — stretched wavefronts: RED (analogous to redshift)
+    ctx.strokeStyle = `rgba(255, 82, 82, ${alpha})`;
+    ctx.beginPath();
+    ctx.arc(w.x0, w.y0, r, Math.PI / 2, -Math.PI / 2);
+    ctx.stroke();
+  }
+
+  // observers
+  for (const o of observers) drawObserver(o.x, o.y);
+
+  // ambulance
+  drawAmbulance(sourceX, sourceY);
+
+  // velocity arrow
+  if (sourceSpeed > 5) {
+    ctx.strokeStyle = '#ffeb3b';
+    ctx.fillStyle = '#ffeb3b';
+    ctx.lineWidth = 2;
+    const ax = sourceX + 35;
+    const ay = sourceY - 30;
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax + 30, ay);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(ax + 30, ay);
+    ctx.lineTo(ax + 24, ay - 4);
+    ctx.lineTo(ax + 24, ay + 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('v', ax + 34, ay + 4);
+  }
+
+  // update frequency display (right observer is ahead, left is behind)
+  const fAhead = observedFrequency(observers[1].x);
+  const fBehind = observedFrequency(observers[0].x);
+  freqAhead.textContent = fAhead.toFixed(2);
+  freqBehind.textContent = fBehind.toFixed(2);
+}
+
+function loop(now) {
+  const dt = Math.min(0.05, (now - lastTime) / 1000);
+  lastTime = now;
+  if (!paused) update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -2,10 +2,6 @@ import katex from "katex";
 import "katex/dist/katex.min.css";
 import { openModal } from "../../../shared/modal";
 import {
-  buildDopplerDiagram,
-  buildGalaxyRedshiftDiagram,
-  buildBalmerDiagram,
-  buildLineShiftDiagram,
   buildCepheidPLDiagram,
   buildCepheidLightCurveDiagram,
   buildHubbleLawDiagram,
@@ -135,11 +131,11 @@ export class HowWeKnow {
       body.appendChild(p(`Imagine an ambulance siren as it drives
         past — the pitch sounds higher coming toward you, lower
         going away.`));
-      body.appendChild(diagramFrame(buildDopplerDiagram()));
+      body.appendChild(iframeFrame("doppler_effect.html", 660, "Interactive: Doppler effect for sound waves from a moving ambulance."));
+      body.appendChild(caption("Drag the speed slider to send the ambulance faster: wavefronts bunch up ahead of it (higher pitch) and stretch out behind (lower pitch)."));
       body.appendChild(p(`Light does the same thing. A galaxy moving
         away has the colours of its light slightly shifted toward
         the red end of the rainbow.`));
-      body.appendChild(diagramFrame(buildGalaxyRedshiftDiagram()));
       body.appendChild(p(`The size of the shift is called the
         <em>redshift</em>, which is usually given the letter
         <em>z</em>:`));
@@ -172,10 +168,18 @@ export class HowWeKnow {
         balmerList.appendChild(li);
       }
       body.appendChild(balmerList);
-      body.appendChild(diagramFrame(buildBalmerDiagram()));
       body.appendChild(p(`When a galaxy is moving away from us, the
-        lines appear to shift position.`));
-      body.appendChild(diagramFrame(buildLineShiftDiagram()));
+        lines appear to shift position — the same Doppler bunching
+        we just saw with sound, but in the spectrum:`));
+      body.appendChild(iframeFrame("doppler_light.html", 980, "Interactive: light wavefronts from a moving galaxy and the resulting shift of hydrogen Balmer lines."));
+      body.appendChild(caption("Drag the galaxy's speed up to a fraction of c, and watch the four Balmer lines slide. The middle band is the lab reference; the top is what a receding observer sees (redshifted), the bottom an approaching one (blueshifted)."));
+      body.appendChild(p(`Real stars don't show only hydrogen lines —
+        they emit a continuous black-body spectrum decorated with
+        dozens of absorption features from many different elements.
+        The whole spectrum shifts together when the galaxy is
+        moving:`));
+      body.appendChild(iframeFrame("doppler_real_spectrum.html", 700, "Interactive: full stellar spectrum (continuum + absorption lines) shifting under a Doppler boost."));
+      body.appendChild(caption("Drag the radial-velocity slider to push the whole spectrum left (blueshift, approaching) or right (redshift, receding). Notice that the continuum peak and every absorption line move together — that's how astronomers tell a redshift from a genuinely cooler star."));
       body.appendChild(p(`To turn z into a velocity, for slow
         galaxies (z ≪ 1):`));
       body.appendChild(katexBlock(String.raw`v = c \, z`));
@@ -276,6 +280,28 @@ function diagramFrame(svg: SVGElement): HTMLElement {
   const wrap = document.createElement("div");
   wrap.className = "hwk-diagram";
   wrap.appendChild(svg);
+  return wrap;
+}
+
+// Embed an interactive teaching artefact from public/data/howWeKnow/
+// in an iframe. iframes give us ID/CSS isolation so each artefact's
+// generic IDs (`canvas`, `speedSlider`, …) don't collide with each
+// other or with the host page, and they sandbox each artefact's
+// requestAnimationFrame loop so it can't jank the modal scroll.
+function iframeFrame(file: string, height: number, title: string): HTMLElement {
+  const wrap = document.createElement("div");
+  wrap.className = "hwk-iframe";
+  const frame = document.createElement("iframe");
+  frame.src = `./data/howWeKnow/${file}`;
+  frame.title = title;
+  frame.loading = "lazy";
+  frame.width = "100%";
+  frame.height = String(height);
+  frame.style.height = `${height}px`;
+  // sandbox: allow same-origin so relative URLs work, allow scripts so
+  // the artefact's animation runs. Don't allow forms / popups / etc.
+  frame.setAttribute("sandbox", "allow-same-origin allow-scripts");
+  wrap.appendChild(frame);
   return wrap;
 }
 
