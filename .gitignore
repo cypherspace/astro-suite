@@ -11,3 +11,9 @@ dist-embed-*
 # `firebase init` flows. Not project source code.
 .agents/
 skills-lock.json
+
+# Playwright responsive-audit suite (tests/responsive/). Run on
+# demand via `npm run test:responsive` — not in CI.
+playwright-report/
+test-results/
+tests/responsive/screenshots/

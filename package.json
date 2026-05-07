@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:responsive": "playwright test",
     "deploy": "npm run build && firebase deploy --only hosting"
   },
   "dependencies": {
@@ -19,6 +20,7 @@
     "katex": "^0.16.45"
   },
   "devDependencies": {
+    "@playwright/test": "^1.48.0",
     "@types/d3": "^7.4.3",
     "@types/katex": "^0.16.8",
     "@types/node": "^22.5.0",
