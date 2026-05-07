@@ -10,27 +10,10 @@
   text-align: center;
 }
 
-/* Wrapper for the interactive teaching artefacts embedded as iframes
-   in the "How we know" modal (Doppler / redshift / spectrum
-   demonstrations). Each iframe loads a self-contained HTML page from
-   public/data/howWeKnow/ and is sandboxed; this rule just gives the
-   wrapper a consistent border + spacing inside the modal flow. */
-.hwk-iframe {
-  margin: 0.6rem 0 0.4rem;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid var(--grid);
-  background: #02010a;
-  width: 100%;
-  max-width: 920px;
-  margin-left: auto;
-  margin-right: auto;
-}
-.hwk-iframe iframe {
-  display: block;
-  width: 100%;
-  border: 0;
-}
+/* .hwk-iframe wrapper rules now live in /src/style.css so both apps'
+   "How we know" modals can embed interactive teaching artefacts
+   (the H-R modal also uses this for the Stefan-Boltzmann star
+   comparison viewer). */
 
 /* ===========================================================
    Hubble's-1929 tour — split-canvas + bottom side-panel

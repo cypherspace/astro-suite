@@ -159,6 +159,11 @@ const SUBSECTIONS: Subsection[] = [
       <blockquote class="hwk-eq"><strong>L / L<sub>☉</sub> = 10<sup>(M<sub>bol,☉</sub> − M<sub>bol</sub>) / 2.5</sup></strong>, where M<sub>bol,☉</sub> = 4.74</blockquote>
       <p>The Gaia survey has already calculated the luminosity of many
       stars using this calculation — we use this when it's there.</p>
+      <p>Try it for yourself — drag the temperature and radius
+      sliders below to see how a star's <strong>power</strong>
+      changes against the Sun. Pick a preset to compare a famous
+      star directly:</p>
+      <div class="hwk-iframe"><iframe src="./data/howWeKnow/star_viewer.html" title="Interactive: drag temperature and radius to see a star's power compared with the Sun. Stefan-Boltzmann L = 4 pi R^2 sigma T^4." loading="lazy" width="100%" height="780" style="height: 780px;" sandbox="allow-same-origin allow-scripts"></iframe></div>
     `,
   },
   {
