@@ -171,7 +171,7 @@ const SUN_LIKE: Star[] = [
   {
     id: "18-sco",
     name: "18 Scorpii",
-    ra: 243.687, dec: -8.372,
+    ra: 243.905, dec: -8.369,
     mV: 5.50, distancePc: 14.13, teff: 5810, bv: 0.65,
     luminosity: 1.05,
     spectralType: "G2Va",
@@ -319,7 +319,7 @@ const WHITE_DWARFS: Star[] = [
   {
     id: "van-maanen-2",
     name: "Van Maanen 2",
-    ra: 7.787, dec: 5.388,
+    ra: 12.291, dec: 5.389,
     mV: 12.37, distancePc: 4.31, teff: 6220, bv: 0.55,
     luminosity: 0.00017,
     spectralType: "DZ8",
@@ -329,7 +329,7 @@ const WHITE_DWARFS: Star[] = [
   {
     id: "stein-2051-b",
     name: "Stein 2051 B",
-    ra: 73.123, dec: 58.973,
+    ra: 67.802, dec: 58.978,
     mV: 12.4, distancePc: 5.52, teff: 7100, bv: 0.24,
     luminosity: 0.0031,
     spectralType: "DC5",
@@ -338,7 +338,7 @@ const WHITE_DWARFS: Star[] = [
   {
     id: "lp-145-141",
     name: "LP 145-141",
-    ra: 175.658, dec: -64.842,
+    ra: 176.429, dec: -64.841,
     mV: 11.51, distancePc: 4.61, teff: 8500, bv: 0.21,
     luminosity: 0.00029,
     spectralType: "DQ6",
@@ -348,7 +348,7 @@ const WHITE_DWARFS: Star[] = [
   {
     id: "gd-358",
     name: "GD 358",
-    ra: 244.158, dec: 32.272,
+    ra: 251.827, dec: 32.476,
     mV: 13.65, distancePc: 42.7, teff: 24937, bv: -0.18,
     luminosity: 0.05,
     spectralType: "DBV",
@@ -358,7 +358,7 @@ const WHITE_DWARFS: Star[] = [
   {
     id: "g29-38",
     name: "G29-38",
-    ra: 354.158, dec: 5.247,
+    ra: 352.199, dec: 5.248,
     mV: 13.05, distancePc: 17.5, teff: 11820, bv: 0.18,
     luminosity: 0.0006,
     spectralType: "DAV",
@@ -420,7 +420,7 @@ const RED_GIANTS: Star[] = [
   {
     id: "mu-cep",
     name: "Mu Cephei (Garnet Star)",
-    ra: 327.808, dec: 58.780,
+    ra: 325.877, dec: 58.780,
     mV: 4.04, distancePc: 940, teff: 3690, bv: 2.35,
     luminosity: 269000,
     spectralType: "M2Ia",
