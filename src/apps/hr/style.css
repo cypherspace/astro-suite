@@ -109,3 +109,72 @@ body.r1914-split-canvas #info-panel {
   font-weight: 600;
 }
 .r1914-side-panel-buttons button.primary:hover { background: #ffa278; }
+
+/* ===========================================================
+   Selected Star data panel — external links, spectral-class
+   help popover, additional-info collapsible. Lifted from the
+   original h-r-diagram repo's stylesheet; lost during the
+   suite merge and restored here.
+   =========================================================== */
+.external-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0.5rem 0;
+}
+.external-link {
+  display: block;
+  padding: 0.4rem 0.6rem;
+  background: var(--panel-2);
+  border: 1px solid var(--accent-2);
+  border-radius: 4px;
+  color: var(--accent-2);
+  text-decoration: none;
+  font-size: 0.85rem;
+  text-align: center;
+}
+.external-link:hover { background: #243057; }
+
+.spectral-dt { display: flex; align-items: center; gap: 0.4rem; }
+.spectral-help-btn {
+  background: var(--panel-2);
+  color: var(--accent-2);
+  border: 1px solid var(--accent-2);
+  border-radius: 50%;
+  width: 1.1rem;
+  height: 1.1rem;
+  font-size: 0.7rem;
+  line-height: 1;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+}
+.spectral-help-btn:hover { background: #243057; }
+.spectral-help-btn.open { background: var(--accent-2); color: var(--bg); }
+.spectral-help-box {
+  background: var(--panel-2);
+  border-left: 3px solid var(--accent-2);
+  padding: 0.5rem 0.75rem;
+  margin-top: 0.4rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+.spectral-help-box p { margin: 0 0 0.4rem; }
+.spectral-help-box ul { margin: 0.3rem 0 0.4rem; padding-left: 1.1rem; }
+.spectral-help-box ul li { margin: 0.1rem 0; }
+.spectral-help-link {
+  color: var(--accent-2);
+  text-decoration: none;
+  font-size: 0.78rem;
+}
+.spectral-help-link:hover { text-decoration: underline; }
+
+.extra-details {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+.extra-details summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+.extra-details summary:hover { color: var(--fg); }
