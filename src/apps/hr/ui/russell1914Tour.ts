@@ -187,7 +187,11 @@ export class Russell1914Tour {
 
     // 3. Animate the sky in the background — fire and forget so the
     //    student can read the tooltip while Aladin pans + zooms.
-    if (record) {
+    //    The Sun is the one exception: it sits at our dummy
+    //    (RA, Dec) = (0, 0) and panning the night-sky viewer to it
+    //    just shows blank sky. The tooltip shows a photo instead
+    //    (see showStarTooltip).
+    if (record && s.id !== "sun") {
       void this.opts.skyViewer
         .animateRaDecFov(record.ra, record.dec, BG_FOV_DEG, ms)
         .catch(() => {/* ignore */});
@@ -226,6 +230,39 @@ export class Russell1914Tour {
       heading.style.color = "var(--accent-coral)";
       heading.textContent = `Step ${idx + 1} / ${RUSSELL_1914_FEATURED.length}: ${s.displayName}`;
       overlay.appendChild(heading);
+
+      // The Sun has no useful sky position (we pan-skip it in
+      // runStarStep), so put a public-domain photo in the tooltip
+      // instead of a blank patch of night sky. Source / fallback
+      // both resolve at runtime; if the user drops a local copy at
+      // public/data/russell1914-sun.jpg it's preferred.
+      if (s.id === "sun") {
+        const fig = document.createElement("figure");
+        fig.className = "r1914-sun-figure";
+        const img = document.createElement("img");
+        img.className = "r1914-sun-image";
+        img.alt = "The Sun, imaged by NASA's Solar Dynamics Observatory (AIA 304 Å)";
+        img.loading = "lazy";
+        img.decoding = "async";
+        img.src = "./data/russell1914-sun.jpg";
+        img.addEventListener("error", () => {
+          if (img.dataset.fallback === "1") return;
+          img.dataset.fallback = "1";
+          img.src =
+            "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/" +
+            "The_Sun_by_the_Atmospheric_Imaging_Assembly_of_NASA%27s_Solar_Dynamics_Observatory_-_20100819.jpg/" +
+            "640px-The_Sun_by_the_Atmospheric_Imaging_Assembly_of_NASA%27s_Solar_Dynamics_Observatory_-_20100819.jpg";
+        });
+        fig.appendChild(img);
+        const credit = document.createElement("figcaption");
+        credit.className = "r1914-sun-credit";
+        credit.innerHTML =
+          'NASA / SDO &amp; AIA — public domain. ' +
+          '<a href="https://commons.wikimedia.org/wiki/File:The_Sun_by_the_Atmospheric_Imaging_Assembly_of_NASA%27s_Solar_Dynamics_Observatory_-_20100819.jpg" ' +
+          'target="_blank" rel="noopener">source</a>';
+        fig.appendChild(credit);
+        overlay.appendChild(fig);
+      }
 
       const tip = document.createElement("p");
       tip.style.margin = "8px 0";
