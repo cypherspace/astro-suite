@@ -17,6 +17,7 @@ import {
   SMALLEST_CONSTELLATION_DEG,
 } from "../../../shared/aladin/constellations";
 import type { MarkerShape, StarSet } from "../data/sampleStars";
+import { epochFor, propagateToEpoch } from "../data/propagate";
 import type { Star } from "../types";
 
 export interface CandidateStar extends Star {}
@@ -30,15 +31,27 @@ export class HrSkyAdapter {
   private masterMarkersVisible = true;
   private readonly setVisibilityIntent = new Map<string, boolean>();
   private readonly unsubscribers: Array<() => void> = [];
+  // Active marker sets, kept around so we can re-project them onto a
+  // different epoch when the user switches sky-survey HiPS without
+  // having to push the data back through registerSets() from above.
+  private registeredSets: StarSet[] = [];
+  private currentEpoch = epochFor(undefined);
 
   constructor(
     core: SkyViewerCore,
     callbacks: {
       onSampleClick: (star: Star) => void;
       onCandidateClick: (star: CandidateStar) => void;
+      // The Aladin survey HiPS the parent app booted with — so the
+      // very first marker layout matches the photograph the student
+      // sees on screen, not the J2000 catalogue position.
+      initialSurvey?: string;
     },
   ) {
     this.core = core;
+    if (callbacks.initialSurvey) {
+      this.currentEpoch = epochFor(callbacks.initialSurvey);
+    }
     core.configureConstellations({
       lines: CONSTELLATIONS,
       labels: CONSTELLATION_LABELS,
@@ -71,31 +84,49 @@ export class HrSkyAdapter {
   }
 
   registerSets(sets: StarSet[]): Promise<void> {
-    return this.core.ready.then(() => {
-      for (const set of sets) {
-        if (this.setCatalogs.has(set.id)) continue;
-        const cat = this.core.addCatalog({
-          name: set.label,
-          sourceSize: 14,
-          color: set.markerColor,
-          shape: set.markerShape as MarkerShape,
-        });
-        if (!cat) continue;
-        this.setCatalogs.set(set.id, cat);
+    this.registeredSets = sets;
+    return this.core.ready.then(() => this.rebuildSetCatalogs());
+  }
 
-        const sources: AladinSource[] = [];
-        for (const s of set.stars) {
-          this.samplesById.set(s.id, s);
-          const src = this.core.makeSource(s.ra, s.dec, {
-            id: s.id,
-            name: s.name,
-            spectralType: s.spectralType ?? "",
-          });
-          if (src) sources.push(src);
-        }
-        if (sources.length > 0) cat.addSources(sources);
+  // (Re)build every star-set catalog using the marker positions
+  // propagated to this.currentEpoch. Used at registration time and
+  // again whenever the active survey changes.
+  private rebuildSetCatalogs(): void {
+    // Tear down any previous catalogs first — Aladin doesn't expose
+    // a per-source "move" hook, so we just rebuild from scratch.
+    for (const cat of this.setCatalogs.values()) this.core.removeCatalog(cat);
+    this.setCatalogs.clear();
+    this.samplesById.clear();
+
+    for (const set of this.registeredSets) {
+      const cat = this.core.addCatalog({
+        name: set.label,
+        sourceSize: 14,
+        color: set.markerColor,
+        shape: set.markerShape as MarkerShape,
+      });
+      if (!cat) continue;
+      this.setCatalogs.set(set.id, cat);
+
+      const sources: AladinSource[] = [];
+      for (const s of set.stars) {
+        // Cache the original (catalogue-J2000) star — clicks resolve
+        // back through samplesById and we always want the canonical
+        // metadata, not the projected one.
+        this.samplesById.set(s.id, s);
+        const { ra, dec } = propagateToEpoch(s, this.currentEpoch);
+        const src = this.core.makeSource(ra, dec, {
+          id: s.id,
+          name: s.name,
+          spectralType: s.spectralType ?? "",
+        });
+        if (src) sources.push(src);
       }
-    });
+      if (sources.length > 0) cat.addSources(sources);
+    }
+    // Reapply the master + per-set visibility intent so a survey
+    // change doesn't accidentally re-show a catalog the user hid.
+    this.applyMarkerVisibility();
   }
 
   setSetVisibility(setId: string, visible: boolean): void {
@@ -163,7 +194,15 @@ export class HrSkyAdapter {
   gotoRaDec(ra: number, dec: number): Promise<void> {
     return this.core.gotoRaDec(ra, dec);
   }
-  setSurvey(survey: string): Promise<void> {
+  async setSurvey(survey: string): Promise<void> {
+    // Re-project the marker positions so they land on the new
+    // survey's actual photographed image, not the J2000 spot.
+    const newEpoch = epochFor(survey);
+    if (newEpoch !== this.currentEpoch && this.registeredSets.length > 0) {
+      this.currentEpoch = newEpoch;
+      await this.core.ready;
+      this.rebuildSetCatalogs();
+    }
     return this.core.setSurvey(survey);
   }
   animateRaDecFov(

@@ -204,6 +204,7 @@ class HrApp {
     this.skyAdapter = new HrSkyAdapter(this.sky, {
       onSampleClick: (star) => this.toggleStar(star),
       onCandidateClick: (star) => this.commitCandidate(star),
+      initialSurvey: "P/DSS2/color",
     });
     void this.skyAdapter.registerSets(STAR_SETS);
 

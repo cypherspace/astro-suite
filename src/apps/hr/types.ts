@@ -1,8 +1,17 @@
 export interface Star {
   id: string;
   name: string;
+  // ICRS J2000.0 catalogue position, in decimal degrees.
   ra: number;
   dec: number;
+  // Proper motion in mas/yr. The RA component is the conventional
+  // mu_alpha * cos(delta) (matches Gaia DR3 / SIMBAD's ASCII output),
+  // so it slots straight into propagateToEpoch() without further trig.
+  // Used to drift the marker position to the active sky-survey's
+  // representative epoch — a fast-moving star like Barnard's lands
+  // on the photographed image rather than its J2000 catalogue spot.
+  pmRaMasYr?: number;
+  pmDecMasYr?: number;
   mV: number;
   distancePc: number;
   // Effective temperature in Kelvin. Optional: Gaia-discovered stars
