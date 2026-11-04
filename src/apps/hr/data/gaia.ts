@@ -1,9 +1,26 @@
 import type { Star } from "../types";
 import { absoluteMagnitude, deriveSpectralType } from "./derive";
+import { withTimeout } from "../../../shared/cdsStatus";
 
 // VizieR TAP (CDS Strasbourg). Known to be CORS-enabled for browser apps,
 // unlike the ESA Gaia archive which is unreliable from the browser.
 const TAP_URL = "https://tapvizier.cds.unistra.fr/TAPVizieR/tap/sync";
+
+// Backup when CDS is down: GAVO's TAP service (Heidelberg), table
+// gaia.dr3lite. Same Gaia DR3 astrometry and photometry, but no published
+// Teff / FLAME luminosity, so stars from here use BP-RP-derived values.
+const GAVO_TAP_URL = "https://dc.g-vo.org/tap/sync";
+
+// A CDS request that hangs this long is treated as CDS being down.
+const CDS_TIMEOUT_MS = 15000;
+const GAVO_TIMEOUT_MS = 30000;
+
+// After CDS fails, skip straight to GAVO for this long so each search
+// doesn't sit through CDS timeouts and retries again.
+const CDS_DOWN_MEMO_MS = 5 * 60 * 1000;
+let cdsDownUntil = 0;
+
+export type GaiaSource = "cds" | "gavo";
 
 export interface GaiaRow {
   source_id: string;
@@ -104,6 +121,25 @@ FROM "I/355/paramsup"
 WHERE "Source" IN (${list})`;
 }
 
+function buildGavoConeAdql(
+  raDeg: number,
+  decDeg: number,
+  radiusDeg: number,
+  topN: number,
+  magLimit: number,
+): string {
+  return `SELECT TOP ${topN}
+  source_id, ra, dec, parallax, parallax_error, phot_g_mean_mag,
+  (phot_bp_mean_mag - phot_rp_mean_mag) AS bprp
+FROM gaia.dr3lite
+WHERE 1 = CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', ${raDeg}, ${decDeg}, ${radiusDeg}))
+  AND parallax > 0
+  AND parallax_error > 0
+  AND parallax / parallax_error > 5
+  AND phot_g_mean_mag < ${magLimit}
+ORDER BY phot_g_mean_mag ASC`;
+}
+
 export type GaiaSortBy = "brightest" | "closest" | "random";
 
 export async function queryConeSearch(
@@ -116,7 +152,7 @@ export async function queryConeSearch(
     signal?: AbortSignal;
     sortBy?: GaiaSortBy;
   } = {},
-): Promise<GaiaRow[]> {
+): Promise<{ rows: GaiaRow[]; source: GaiaSource }> {
   const topN = options.topN ?? 50;
   const sortBy = options.sortBy ?? "closest";
   // For non-brightest sort orders, fetch a larger pool so the
@@ -125,17 +161,67 @@ export async function queryConeSearch(
   const fetchN = sortBy === "brightest"
     ? topN
     : Math.min(1000, Math.max(topN * 3, topN + 50));
-  const adql = buildConeAdql(
-    raDeg,
-    decDeg,
-    radiusDeg,
-    fetchN,
-    options.magLimit ?? 18,
-  );
-  let rows = await runAdql(adql, options.signal);
+  const magLimit = options.magLimit ?? 18;
+  let rows: GaiaRow[] | null = null;
+  let source: GaiaSource = "cds";
+  if (Date.now() >= cdsDownUntil) {
+    try {
+      rows = await runAdql(
+        buildConeAdql(raDeg, decDeg, radiusDeg, fetchN, magLimit),
+        options.signal,
+      );
+    } catch (e) {
+      if (!(e instanceof GaiaError && e.unavailable) || options.signal?.aborted) {
+        throw e;
+      }
+      cdsDownUntil = Date.now() + CDS_DOWN_MEMO_MS;
+    }
+  }
+  if (rows === null) {
+    source = "gavo";
+    rows = await runGavo(
+      buildGavoConeAdql(raDeg, decDeg, radiusDeg, fetchN, magLimit),
+      options.signal,
+    );
+  }
   rows = sortGaiaRows(rows, sortBy, raDeg, decDeg).slice(0, topN);
-  await enrichWithParamsup(rows, options.signal);
-  return rows;
+  if (source === "cds") await enrichWithParamsup(rows, options.signal);
+  return { rows, source };
+}
+
+async function runGavo(adql: string, signal?: AbortSignal): Promise<GaiaRow[]> {
+  const params = new URLSearchParams({
+    REQUEST: "doQuery",
+    LANG: "ADQL",
+    FORMAT: "csv",
+    QUERY: adql,
+  });
+  const t = withTimeout(signal, GAVO_TIMEOUT_MS);
+  let res: Response;
+  let text: string;
+  try {
+    res = await fetch(GAVO_TAP_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: params.toString(),
+      signal: t.signal,
+    });
+    text = await res.text();
+  } catch (e) {
+    if (signal?.aborted) throw e;
+    const err = new GaiaError("The backup Gaia service (GAVO) isn't responding.", e);
+    err.unavailable = true;
+    throw err;
+  } finally {
+    t.clear();
+  }
+  if (!res.ok) {
+    console.error("[gaia] GAVO HTTP", res.status, text.slice(0, 500));
+    const err = new GaiaError(`GAVO returned HTTP ${res.status}.`);
+    err.unavailable = true;
+    throw err;
+  }
+  return parseCsv(text);
 }
 
 function sortGaiaRows(
@@ -263,15 +349,19 @@ async function runAdqlOnce(
     QUERY: adql,
   });
   let res: Response;
+  let text: string;
+  const t = withTimeout(signal, CDS_TIMEOUT_MS);
   try {
     res = await fetch(TAP_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: params.toString(),
-      signal,
+      signal: t.signal,
     });
+    text = await res.text();
   } catch (e) {
-    console.error("[gaia] network error", e);
+    if (signal?.aborted) throw e;
+    console.error("[gaia] network error or timeout", e);
     const err = new GaiaError(
       "Network error reaching VizieR. If this page is opened from " +
         "file://, the browser blocks cross-origin fetches. Serve over " +
@@ -280,8 +370,9 @@ async function runAdqlOnce(
     );
     err.unavailable = true;
     throw err;
+  } finally {
+    t.clear();
   }
-  const text = await res.text();
   if (!res.ok) {
     console.error("[gaia] HTTP", res.status, text.slice(0, 500));
     // 503 = "TAP service too busy" — transient, worth a retry.
@@ -422,7 +513,7 @@ function parseCsv(text: string): GaiaRow[] {
   const iRa = idx("RA_ICRS", "ra_icrs", "ra", "RAJ2000");
   const iDec = idx("DE_ICRS", "de_icrs", "dec", "DEJ2000");
   const iPlx = idx("Plx", "plx", "parallax");
-  const iEPlx = idx("e_Plx", "e_plx");
+  const iEPlx = idx("e_Plx", "e_plx", "parallax_error");
   const iG = idx("Gmag", "gmag", "phot_g_mean_mag");
   const iBpRp = idx("bprp", "BP-RP", "bp_rp");
   const iTeffPub = idx("teff_pub", "Teff", "teff");

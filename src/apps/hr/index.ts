@@ -16,7 +16,10 @@ import {
   type GaiaSortBy,
 } from "./data/gaia";
 import { lookupSimbadName } from "../../shared/simbad";
-import { SEARCH_UNAVAILABLE_TEXT } from "../../shared/cdsStatus";
+import {
+  STAR_SEARCH_FALLBACK_NOTE,
+  STAR_SEARCH_UNAVAILABLE_TEXT,
+} from "../../shared/cdsStatus";
 import { HRDiagram } from "./ui/hrDiagram";
 import { DataPanel } from "./ui/dataPanel";
 import { Controls } from "./ui/controls";
@@ -195,7 +198,9 @@ class HrApp {
 
     this.sky = new SkyViewerCore({
       container: this.aladinEl,
-      initialTarget: "Pleiades",
+      // Coordinates rather than a name, so the opening view doesn't
+      // depend on CDS's name resolver (Pleiades / M45).
+      initialTarget: "56.75 +24.117",
       initialSurvey: "P/DSS2/color",
       initialFov: 60,
       onStatus: (msg) => {
@@ -552,7 +557,7 @@ class HrApp {
     };
     this.skyStatusEl.textContent = `Searching for stars (radius ${radius.toFixed(2)}°, top ${limit} ${sortLabel[this.searchSortBy]})…`;
     try {
-      const rows = await queryConeSearch(ra, dec, radius, {
+      const { rows, source } = await queryConeSearch(ra, dec, radius, {
         topN: limit,
         sortBy: this.searchSortBy,
         signal: ctrl.signal,
@@ -564,14 +569,15 @@ class HrApp {
         if (!this.plotted.has(star.id)) candidates.push(star);
       }
       await this.skyAdapter.setCandidates(candidates);
+      const via = source === "gavo" ? ` (${STAR_SEARCH_FALLBACK_NOTE})` : "";
       this.skyStatusEl.textContent =
         candidates.length > 0
-          ? `Found ${candidates.length} stars with data. Click a marker to add one, or "Add all".`
-          : "No new stars in that region.";
+          ? `Found ${candidates.length} stars with data${via}. Click a marker to add one, or "Add all".`
+          : `No new stars in that region${via}.`;
     } catch (e) {
       if (ctrl.signal.aborted) return;
       if (e instanceof GaiaError && e.unavailable) {
-        this.skyStatusEl.textContent = SEARCH_UNAVAILABLE_TEXT;
+        this.skyStatusEl.textContent = STAR_SEARCH_UNAVAILABLE_TEXT;
         return;
       }
       const msg =

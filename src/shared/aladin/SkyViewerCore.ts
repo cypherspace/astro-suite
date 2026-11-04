@@ -6,11 +6,15 @@ import type {
 } from "./types";
 import { waitForAladin } from "./waitForAladin";
 import {
+  CDS_NEWS_URL,
   OFFLINE_TEXT,
   OFFLINE_TITLE,
+  SKY_FALLBACK_NOTE,
   SKY_UNAVAILABLE_TEXT,
   SKY_UNAVAILABLE_TITLE,
+  esaskySurveyFor,
   isCdsReachable,
+  isEsaskyReachable,
 } from "../cdsStatus";
 
 export interface SkyViewerCoreOptions {
@@ -58,6 +62,8 @@ export class SkyViewerCore {
   private constellationConfig?: ConstellationConfig;
   private currentSurvey: string;
   private unavailableEl?: HTMLElement;
+  // True while sky images come from ESA's ESASky copy because CDS is down.
+  private usingEsasky = false;
   private static readonly DEFAULT_HIDE_LABELS_BELOW_FOV = 5;
 
   constructor(opts: SkyViewerCoreOptions) {
@@ -126,13 +132,28 @@ export class SkyViewerCore {
     this.installZoomButtons();
 
     void cdsReachable.then((ok) => {
-      if (ok) return;
-      if (navigator.onLine) {
-        this.showUnavailable(SKY_UNAVAILABLE_TITLE, SKY_UNAVAILABLE_TEXT, true);
-      } else {
-        this.showUnavailable(OFFLINE_TITLE, OFFLINE_TEXT, true);
-      }
+      if (!ok) void this.recoverFromCdsOutage();
     });
+  }
+
+  // Called when CDS didn't answer the startup probe: switch to ESA's copy
+  // of the sky images if that answers, otherwise explain with the panel.
+  private async recoverFromCdsOutage(): Promise<void> {
+    if (!navigator.onLine) {
+      this.showUnavailable(OFFLINE_TITLE, OFFLINE_TEXT, true);
+      return;
+    }
+    if (await isEsaskyReachable()) {
+      this.useEsasky();
+      return;
+    }
+    this.showUnavailable(SKY_UNAVAILABLE_TITLE, SKY_UNAVAILABLE_TEXT, true);
+  }
+
+  private useEsasky(): void {
+    this.usingEsasky = true;
+    this.aladin?.setImageSurvey(esaskySurveyFor(this.currentSurvey));
+    this.opts.onStatus?.(SKY_FALLBACK_NOTE);
   }
 
   // Covers the viewer with a plain-language explanation. "Try again"
@@ -149,6 +170,16 @@ export class SkyViewerCore {
     const p = document.createElement("p");
     p.textContent = text;
     box.append(h, p);
+    if (title === SKY_UNAVAILABLE_TITLE) {
+      const news = document.createElement("p");
+      const a = document.createElement("a");
+      a.href = CDS_NEWS_URL;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.textContent = "Check the data centre's news page for updates";
+      news.append(a);
+      box.append(news);
+    }
     if (canRetry) {
       const btn = document.createElement("button");
       btn.type = "button";
@@ -161,8 +192,13 @@ export class SkyViewerCore {
         note.textContent = "";
         if (await isCdsReachable()) {
           this.hideUnavailable();
+          this.usingEsasky = false;
           this.aladin?.setImageSurvey(this.currentSurvey);
-          void this.goto(this.opts.initialTarget ?? "Pleiades");
+          return;
+        }
+        if (navigator.onLine && (await isEsaskyReachable())) {
+          this.hideUnavailable();
+          this.useEsasky();
           return;
         }
         btn.disabled = false;
@@ -346,7 +382,9 @@ export class SkyViewerCore {
   async setSurvey(survey: string): Promise<void> {
     await this.ready;
     this.currentSurvey = survey;
-    this.aladin?.setImageSurvey(survey);
+    this.aladin?.setImageSurvey(
+      this.usingEsasky ? esaskySurveyFor(survey) : survey,
+    );
   }
 
   /**
@@ -357,6 +395,13 @@ export class SkyViewerCore {
   async setHstOverlayVisible(on: boolean): Promise<void> {
     await this.ready;
     if (!this.aladin) return;
+    if (on && this.usingEsasky) {
+      // The HST imagery only exists on CDS, so there's nothing to overlay.
+      this.opts.onStatus?.(
+        "The HST overlay isn't available while the Strasbourg data centre (CDS) is down.",
+      );
+      return;
+    }
     if (on && this.aladin.setOverlayImageLayer) {
       // Aladin Lite v3 builds since 2025 reject numeric opacity here
       // ("invalid type: floating point 0.7, expected a string"). The

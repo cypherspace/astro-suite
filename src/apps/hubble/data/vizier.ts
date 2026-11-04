@@ -3,7 +3,12 @@
 // errors. The retry/backoff logic ports verbatim — VizieR's TAP
 // service hiccups in the same ways for SH0ES queries.
 
+import { withTimeout } from "../../../shared/cdsStatus";
+
 const TAP_URL = "https://tapvizier.cds.unistra.fr/TAPVizieR/tap/sync";
+
+// A request that hangs this long is treated as CDS being down.
+const CDS_TIMEOUT_MS = 15000;
 
 export class VizierError extends Error {
   public override readonly cause?: unknown;
@@ -55,14 +60,18 @@ async function runAdqlOnce(
     QUERY: adql,
   });
   let res: Response;
+  let text: string;
+  const t = withTimeout(signal, CDS_TIMEOUT_MS);
   try {
     res = await fetch(TAP_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: params.toString(),
-      signal,
+      signal: t.signal,
     });
+    text = await res.text();
   } catch (e) {
+    if (signal?.aborted) throw e;
     const err = new VizierError(
       "Network error reaching VizieR. If this page is opened from " +
         "file://, the browser blocks cross-origin fetches. Serve over " +
@@ -71,8 +80,9 @@ async function runAdqlOnce(
     );
     err.unavailable = true;
     throw err;
+  } finally {
+    t.clear();
   }
-  const text = await res.text();
   if (!res.ok) {
     if (res.status === 503 || /service too busy/i.test(text)) {
       const err = new VizierError(

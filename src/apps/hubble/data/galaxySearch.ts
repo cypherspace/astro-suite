@@ -1,5 +1,5 @@
 import type { DistanceTag, Galaxy } from "../types";
-import { num, parseCsv, runAdql } from "./vizier";
+import { VizierError, num, parseCsv, runAdql } from "./vizier";
 import { C_KM_S } from "./derive";
 
 // Cone-search galaxies in the visible part of the sky. Four catalogs
@@ -115,9 +115,13 @@ export async function searchGalaxies(
   );
 
   let merged: SearchedGalaxy[] = await cf3Promise;
+  // Once one catalog has shown CDS is unreachable, the rest (same server)
+  // will fail too; skip them rather than wait for each to time out.
+  const cdsDown = () =>
+    failures.some((e) => e instanceof VizierError && e.unavailable);
   if (merged.length > 0) sourcesUsed.push("cf3");
 
-  if (merged.length < FALLBACK_THRESHOLD) {
+  if (merged.length < FALLBACK_THRESHOLD && !cdsDown()) {
     attempted++;
     try {
       const sdss = await searchSdss(raDeg, decDeg, radiusDeg, options);
@@ -129,7 +133,7 @@ export async function searchGalaxies(
     }
   }
 
-  if (merged.length < FALLBACK_THRESHOLD) {
+  if (merged.length < FALLBACK_THRESHOLD && !cdsDown()) {
     attempted++;
     try {
       const two = await search2mrs(raDeg, decDeg, radiusDeg, options);

@@ -581,6 +581,10 @@ body:not(.view-info-open) .aladin-cooFrame {
   opacity: 0.6;
   cursor: progress;
 }
+#aladin-lite-div .sky-unavailable a,
+#aladin-lite-div .sky-unavailable a:visited {
+  color: var(--accent-2);
+}
 #aladin-lite-div .sky-unavailable .sky-unavailable-note {
   color: var(--muted);
   font-size: 0.82rem;

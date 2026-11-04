@@ -5,6 +5,8 @@
 // designation ("* zet Ori A"). We fetch the plain-text "ASCII" output
 // and parse the `Object` line.
 
+import { withTimeout } from "./cdsStatus";
+
 const GREEK_LETTERS: Record<string, string> = {
   alf: "α",
   bet: "β",
@@ -37,26 +39,46 @@ export interface SimbadIdentity {
   raw: string;
 }
 
+// CDS's own SIMBAD first, then the Harvard (CfA) mirror CDS recommends
+// during outages. After CDS fails we go straight to the mirror for a while.
+const SIMBAD_HOSTS = [
+  "https://simbad.cds.unistra.fr",
+  "https://simbad.cfa.harvard.edu",
+];
+const CDS_TIMEOUT_MS = 8000;
+const CDS_DOWN_MEMO_MS = 5 * 60 * 1000;
+let cdsDownUntil = 0;
+
 export async function lookupSimbadName(
   gaiaSourceId: string,
   signal?: AbortSignal,
 ): Promise<SimbadIdentity | null> {
   const ident = encodeURIComponent(`Gaia DR3 ${gaiaSourceId}`);
-  const url =
-    `https://simbad.cds.unistra.fr/simbad/sim-id?Ident=${ident}` +
+  const path =
+    `/simbad/sim-id?Ident=${ident}` +
     `&output.format=ASCII&obj.bibsel=off&obj.notesel=off&obj.mesdisp=N`;
-  let res: Response;
-  try {
-    res = await fetch(url, { signal });
-  } catch {
-    return null;
+  const hosts = Date.now() < cdsDownUntil ? SIMBAD_HOSTS.slice(1) : SIMBAD_HOSTS;
+  for (const host of hosts) {
+    const isCds = host === SIMBAD_HOSTS[0];
+    const t = withTimeout(signal, isCds ? CDS_TIMEOUT_MS : 15000);
+    try {
+      const res = await fetch(host + path, { signal: t.signal });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      // A successful response with no Object line means SIMBAD doesn't
+      // know this star; the mirror won't either.
+      const match = text.match(/^Object\s+(.+?)\s+---/m);
+      if (!match) return null;
+      const raw = match[1].trim();
+      return { raw, display: prettify(raw) };
+    } catch {
+      if (signal?.aborted) return null;
+      if (isCds) cdsDownUntil = Date.now() + CDS_DOWN_MEMO_MS;
+    } finally {
+      t.clear();
+    }
   }
-  if (!res.ok) return null;
-  const text = await res.text();
-  const match = text.match(/^Object\s+(.+?)\s+---/m);
-  if (!match) return null;
-  const raw = match[1].trim();
-  return { raw, display: prettify(raw) };
+  return null;
 }
 
 export function prettify(simbadId: string): string {
