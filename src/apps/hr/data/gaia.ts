@@ -26,6 +26,8 @@ export class GaiaError extends Error {
   // Set true for errors worth retrying automatically (e.g. 503
   // "service too busy"). Inspected by runAdql.
   public transient = false;
+  /** True when CDS returned 503 or couldn't be reached at all. */
+  public unavailable = false;
   constructor(message: string, cause?: unknown) {
     super(message);
     this.name = "GaiaError";
@@ -270,12 +272,14 @@ async function runAdqlOnce(
     });
   } catch (e) {
     console.error("[gaia] network error", e);
-    throw new GaiaError(
+    const err = new GaiaError(
       "Network error reaching VizieR. If this page is opened from " +
         "file://, the browser blocks cross-origin fetches. Serve over " +
         "http(s) (e.g. `npx serve dist`) or embed it in a website.",
       e,
     );
+    err.unavailable = true;
+    throw err;
   }
   const text = await res.text();
   if (!res.ok) {
@@ -286,6 +290,7 @@ async function runAdqlOnce(
         "VizieR is busy right now. Please try again in a moment.",
       );
       err.transient = true;
+      err.unavailable = true;
       throw err;
     }
     // VizieR occasionally returns 400 "1 unresolved identifiers!" or

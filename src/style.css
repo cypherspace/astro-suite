@@ -538,6 +538,55 @@ body:not(.view-info-open) .aladin-cooFrame {
   outline-offset: 2px;
 }
 
+/* Shown by SkyViewerCore when CDS (the source of the sky images) isn't
+   responding. Covers the whole viewer, including Aladin's own chrome. */
+#aladin-lite-div .sky-unavailable {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  background: rgba(11, 16, 32, 0.94);
+  color: var(--fg);
+  text-align: center;
+}
+#aladin-lite-div .sky-unavailable h3 {
+  margin: 0;
+  color: var(--accent);
+  font-size: 1.1rem;
+}
+#aladin-lite-div .sky-unavailable p {
+  margin: 0;
+  max-width: 34rem;
+  line-height: 1.5;
+  font-size: 0.92rem;
+}
+#aladin-lite-div .sky-unavailable button {
+  background: var(--panel-2);
+  color: var(--fg);
+  border: 1px solid var(--accent-2);
+  border-radius: 4px;
+  padding: 0.4rem 1rem;
+  font: inherit;
+  cursor: pointer;
+}
+#aladin-lite-div .sky-unavailable button:hover:not(:disabled) {
+  background: #243057;
+}
+#aladin-lite-div .sky-unavailable button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+#aladin-lite-div .sky-unavailable .sky-unavailable-note {
+  color: var(--muted);
+  font-size: 0.82rem;
+  min-height: 1.2em;
+}
+
 /* ===========================================================
    Chrome-style tab bar — Variant B: full-bleed strip with subtle
    dark gradient, tabs flush at the very top of the viewport, active

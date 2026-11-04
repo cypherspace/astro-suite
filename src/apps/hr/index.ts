@@ -16,6 +16,7 @@ import {
   type GaiaSortBy,
 } from "./data/gaia";
 import { lookupSimbadName } from "../../shared/simbad";
+import { SEARCH_UNAVAILABLE_TEXT } from "../../shared/cdsStatus";
 import { HRDiagram } from "./ui/hrDiagram";
 import { DataPanel } from "./ui/dataPanel";
 import { Controls } from "./ui/controls";
@@ -569,6 +570,10 @@ class HrApp {
           : "No new stars in that region.";
     } catch (e) {
       if (ctrl.signal.aborted) return;
+      if (e instanceof GaiaError && e.unavailable) {
+        this.skyStatusEl.textContent = SEARCH_UNAVAILABLE_TEXT;
+        return;
+      }
       const msg =
         e instanceof GaiaError
           ? e.message

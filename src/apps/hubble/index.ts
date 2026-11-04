@@ -13,6 +13,7 @@ import {
   type SearchedGalaxy,
 } from "./data/galaxySearch";
 import { VizierError } from "./data/vizier";
+import { SEARCH_UNAVAILABLE_TEXT } from "../../shared/cdsStatus";
 import { HubbleDiagram } from "./ui/hubbleDiagram";
 import { Controls } from "./ui/controls";
 import { DataPanel } from "./ui/dataPanel";
@@ -577,6 +578,10 @@ class HubbleApp {
       }
     } catch (e) {
       if (ctrl.signal.aborted) return;
+      if (e instanceof VizierError && e.unavailable) {
+        this.skyStatusEl.textContent = SEARCH_UNAVAILABLE_TEXT;
+        return;
+      }
       const msg =
         e instanceof VizierError
           ? e.message

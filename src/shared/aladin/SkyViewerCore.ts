@@ -5,6 +5,13 @@ import type {
   AladinSource,
 } from "./types";
 import { waitForAladin } from "./waitForAladin";
+import {
+  OFFLINE_TEXT,
+  OFFLINE_TITLE,
+  SKY_UNAVAILABLE_TEXT,
+  SKY_UNAVAILABLE_TITLE,
+  isCdsReachable,
+} from "../cdsStatus";
 
 export interface SkyViewerCoreOptions {
   container: HTMLElement;
@@ -49,19 +56,26 @@ export class SkyViewerCore {
   private constellationLabelCatalog?: AladinCatalog;
   private constellationsVisible = false;
   private constellationConfig?: ConstellationConfig;
+  private currentSurvey: string;
+  private unavailableEl?: HTMLElement;
   private static readonly DEFAULT_HIDE_LABELS_BELOW_FOV = 5;
 
   constructor(opts: SkyViewerCoreOptions) {
     this.opts = opts;
+    this.currentSurvey = opts.initialSurvey ?? "P/DSS2/color";
     this.ready = this.init();
   }
 
   private async init(): Promise<void> {
+    // Probe CDS alongside loading Aladin: during a CDS outage Aladin
+    // doesn't error, it just hangs on a grey sphere forever.
+    const cdsReachable = isCdsReachable();
     const A = await waitForAladin();
     if (!A) {
       this.opts.onStatus?.(
         "Sky viewer failed to load. Check your internet connection.",
       );
+      this.showUnavailable(OFFLINE_TITLE, OFFLINE_TEXT, false);
       return;
     }
     await A.init;
@@ -71,7 +85,7 @@ export class SkyViewerCore {
     // "Projection & coords" toggle in the sky controls flips the
     // body class to reveal them — no re-init required.
     this.aladin = A.aladin(this.opts.container, {
-      survey: this.opts.initialSurvey ?? "P/DSS2/color",
+      survey: this.currentSurvey,
       fov: this.opts.initialFov ?? 60,
       target: this.opts.initialTarget ?? "Pleiades",
       cooFrame: "ICRSd",
@@ -110,6 +124,60 @@ export class SkyViewerCore {
     });
 
     this.installZoomButtons();
+
+    void cdsReachable.then((ok) => {
+      if (ok) return;
+      if (navigator.onLine) {
+        this.showUnavailable(SKY_UNAVAILABLE_TITLE, SKY_UNAVAILABLE_TEXT, true);
+      } else {
+        this.showUnavailable(OFFLINE_TITLE, OFFLINE_TEXT, true);
+      }
+    });
+  }
+
+  // Covers the viewer with a plain-language explanation. "Try again"
+  // re-probes in place rather than reloading the page, so stars already
+  // plotted on the diagram are kept.
+  private showUnavailable(title: string, text: string, canRetry: boolean): void {
+    this.unavailableEl?.remove();
+    this.opts.onStatus?.("");
+    const box = document.createElement("div");
+    box.className = "sky-unavailable";
+    box.setAttribute("role", "alert");
+    const h = document.createElement("h3");
+    h.textContent = title;
+    const p = document.createElement("p");
+    p.textContent = text;
+    box.append(h, p);
+    if (canRetry) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = "Try again";
+      const note = document.createElement("p");
+      note.className = "sky-unavailable-note";
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        btn.textContent = "Checking…";
+        note.textContent = "";
+        if (await isCdsReachable()) {
+          this.hideUnavailable();
+          this.aladin?.setImageSurvey(this.currentSurvey);
+          void this.goto(this.opts.initialTarget ?? "Pleiades");
+          return;
+        }
+        btn.disabled = false;
+        btn.textContent = "Try again";
+        note.textContent = "Still not responding. Please try again later.";
+      });
+      box.append(btn, note);
+    }
+    this.opts.container.appendChild(box);
+    this.unavailableEl = box;
+  }
+
+  private hideUnavailable(): void {
+    this.unavailableEl?.remove();
+    this.unavailableEl = undefined;
   }
 
   // Custom +/- zoom buttons overlaid on the Aladin canvas, styled to match
@@ -277,6 +345,7 @@ export class SkyViewerCore {
 
   async setSurvey(survey: string): Promise<void> {
     await this.ready;
+    this.currentSurvey = survey;
     this.aladin?.setImageSurvey(survey);
   }
 

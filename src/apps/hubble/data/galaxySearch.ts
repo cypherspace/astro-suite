@@ -95,11 +95,20 @@ export async function searchGalaxies(
   options: SearchOptions = {},
 ): Promise<SearchResult> {
   const sourcesUsed: SearchResult["sourcesUsed"] = [];
+  // Individual catalog failures are tolerated, but if every catalog we
+  // tried failed then "no galaxies found" would be misleading, so we
+  // rethrow the last error instead (typically a 503 during a CDS outage).
+  let attempted = 0;
+  const failures: unknown[] = [];
   // Fire CF3 + CF4 in parallel. Both swallow errors — VizieR sometimes
   // refuses these tables (column-name drift between catalog releases),
   // and we'd rather show SDSS results than fail the whole search.
+  attempted++;
   const cf3Promise = searchCosmicflows3(raDeg, decDeg, radiusDeg, options).catch(
-    () => [] as SearchedGalaxy[],
+    (e) => {
+      failures.push(e);
+      return [] as SearchedGalaxy[];
+    },
   );
   const cf4Promise = searchCosmicflows4(raDeg, decDeg, radiusDeg, options).catch(
     () => [] as SearchedGalaxy[],
@@ -109,23 +118,31 @@ export async function searchGalaxies(
   if (merged.length > 0) sourcesUsed.push("cf3");
 
   if (merged.length < FALLBACK_THRESHOLD) {
+    attempted++;
     try {
       const sdss = await searchSdss(raDeg, decDeg, radiusDeg, options);
       merged = mergeByPosition(merged, sdss);
       if (sdss.length > 0) sourcesUsed.push("sdss");
-    } catch {
+    } catch (e) {
       // SDSS failures are non-fatal; the user still sees 2MRS.
+      failures.push(e);
     }
   }
 
   if (merged.length < FALLBACK_THRESHOLD) {
+    attempted++;
     try {
       const two = await search2mrs(raDeg, decDeg, radiusDeg, options);
       merged = mergeByPosition(merged, two);
       if (two.length > 0) sourcesUsed.push("2mrs");
-    } catch {
+    } catch (e) {
       // 2MRS failures are non-fatal.
+      failures.push(e);
     }
+  }
+
+  if (merged.length === 0 && failures.length === attempted) {
+    throw failures[failures.length - 1];
   }
 
   return { galaxies: merged, sourcesUsed, cf4Pending: cf4Promise };
