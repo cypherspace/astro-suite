@@ -5,14 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Astro Suite</title>
     <link rel="stylesheet" href="/src/style.css" />
-    <link
-      rel="stylesheet"
-      href="https://aladin.cds.unistra.fr/AladinLite/api/v3/latest/aladin.css"
-    />
-    <script
-      src="https://aladin.cds.unistra.fr/AladinLite/api/v3/latest/aladin.js"
-      charset="utf-8"
-    ></script>
+    <!-- Aladin Lite is loaded as an npm dependency instead of from
+         aladin.cds.unistra.fr. The bundled JS inlines its WASM and
+         self-injects its CSS, so the two <link>/<script> tags that
+         used to live here (pointing at CDS) are gone. See
+         src/aladin-init.ts for the wiring. -->
   </head>
   <body>
     <div id="app">

@@ -16,6 +16,7 @@
     "deploy": "npm run build && firebase deploy --only hosting"
   },
   "dependencies": {
+    "aladin-lite": "^3.9.2-beta",
     "d3": "^7.9.0",
     "katex": "^0.16.45"
   },
