@@ -1,7 +1,3 @@
-// Side-effect import first — assigns window.A from the bundled Aladin
-// Lite npm package so SkyViewerCore's waitForAladin() sees it. Must
-// run before any app code that touches the sky viewer.
-import "./aladin-init";
 import "./style.css";
 import { TabBar } from "./tabBar";
 import { APPS, type AppRegistration } from "./apps";

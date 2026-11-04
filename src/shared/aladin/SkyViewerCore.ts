@@ -76,7 +76,7 @@ export class SkyViewerCore {
       target: this.opts.initialTarget ?? "Pleiades",
       cooFrame: "ICRSd",
       showReticle: true,
-      showZoomControl: true,
+      showZoomControl: false,
       showFullscreenControl: true,
       showLayersControl: false,
       showGotoControl: false,
@@ -112,10 +112,10 @@ export class SkyViewerCore {
     this.installZoomButtons();
   }
 
-  // Custom +/- zoom buttons overlaid on the Aladin canvas. Aladin Lite v3
-  // builds since 2025 no longer render a visible standalone zoom control
-  // even with `showZoomControl: true`; provide our own so users on touch
-  // devices and trackpads aren't stuck with scroll-wheel zoom.
+  // Custom +/- zoom buttons overlaid on the Aladin canvas, styled to match
+  // the app. Aladin's native zoom control is disabled above so there is
+  // only one pair; touch and trackpad users need buttons rather than
+  // scroll-wheel zoom.
   private installZoomButtons(): void {
     if (!this.aladin) return;
     const wrap = document.createElement("div");
